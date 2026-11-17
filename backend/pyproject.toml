@@ -1,0 +1,9 @@
+[project]
+name = "recon-backend"
+version = "1.0.0"
+description = "图片三维重建系统后端（FastAPI + COLMAP 适配 + RQ Worker）"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

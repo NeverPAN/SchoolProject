@@ -1,0 +1,244 @@
+"""Pydantic schemas — 请求/响应数据契约（docs/api-contract.md 的实现）。"""
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field, field_validator
+
+# ---------------------------------------------------------------------------
+# 通用
+# ---------------------------------------------------------------------------
+
+
+class ApiResponse(BaseModel):
+    code: str = "OK"
+    message: str = "success"
+
+
+class Paginated(BaseModel):
+    total: int
+    items: list[Any]
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=6, max_length=128)
+
+    @field_validator("username")
+    @classmethod
+    def username_safe(cls, v: str) -> str:
+        import re
+
+        if not re.fullmatch(r"[\w\u4e00-\u9fff.-]+", v):
+            raise ValueError("用户名只能包含字母、数字、下划线、中文、点、横线")
+        return v
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+    role: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+
+# ---------------------------------------------------------------------------
+# Project
+# ---------------------------------------------------------------------------
+
+
+class ProjectCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    description: str = Field(default="", max_length=2000)
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    description: str | None = Field(default=None, max_length=2000)
+
+
+class ImageBrief(BaseModel):
+    id: int
+    original_filename: str
+    file_size: int
+    width: int
+    height: int
+    format: str
+    quality_status: str
+    has_thumbnail: bool
+
+    model_config = {"from_attributes": True}
+
+
+class ProjectOut(BaseModel):
+    id: int
+    name: str
+    description: str
+    status: str
+    owner_id: int
+    created_at: datetime
+    updated_at: datetime
+    image_count: int = 0
+    total_image_bytes: int = 0
+    model_count: int = 0
+    job_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class ProjectDetailOut(ProjectOut):
+    images: list[ImageBrief] = []
+    quality_summary: dict[str, int] = {}
+
+
+# ---------------------------------------------------------------------------
+# Image
+# ---------------------------------------------------------------------------
+
+
+class ImageOut(ImageBrief):
+    id: int
+    project_id: int
+    stored_name: str
+    checksum: str
+    exif: dict[str, Any] | None = None
+    quality_notes: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ImageDeleteResult(BaseModel):
+    code: str = "OK"
+    message: str
+    image_id: int
+
+
+class QualityCheckSummary(BaseModel):
+    checked: int
+    ok: int
+    warning: int
+    invalid: int
+
+
+# ---------------------------------------------------------------------------
+# Job
+# ---------------------------------------------------------------------------
+
+ReconPreset = Literal["fast", "standard", "high"]
+MatcherType = Literal["auto", "exhaustive", "sequential"]
+
+
+class JobCreateRequest(BaseModel):
+    preset: ReconPreset = "standard"
+    matcher: MatcherType = "auto"
+    enable_dense: bool = True
+    enable_mesh: bool = True
+
+
+class JobConfigOut(BaseModel):
+    preset: ReconPreset
+    matcher: MatcherType
+    enable_dense: bool
+    enable_mesh: bool
+    use_gpu: bool
+    mode: str  # colmap | mock
+
+
+class JobStageEventOut(BaseModel):
+    id: int
+    stage: str
+    status: str
+    started_at: datetime | None
+    finished_at: datetime | None
+    duration_ms: int | None
+    message: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class JobOut(BaseModel):
+    id: int
+    project_id: int
+    status: str
+    current_stage: str | None
+    progress: float
+    pipeline_mode: str
+    engine_version: str | None
+    config: JobConfigOut
+    started_at: datetime | None
+    finished_at: datetime | None
+    error_stage: str | None
+    error_code: str | None
+    error_message: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class JobDetailOut(JobOut):
+    events: list[JobStageEventOut] = []
+
+
+# ---------------------------------------------------------------------------
+# Model
+# ---------------------------------------------------------------------------
+
+
+class ModelOut(BaseModel):
+    id: int
+    project_id: int
+    job_id: int | None
+    model_type: str
+    format: str
+    file_size: int
+    vertex_count: int
+    face_count: int
+    point_count: int
+    stage_origin: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ModelDetailOut(ModelOut):
+    versions: list["ModelVersionOut"] = []
+
+
+class ModelVersionOut(BaseModel):
+    id: int
+    version_number: int
+    parent_version_id: int | None
+    change_type: str
+    change_description: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ModelVersionCreate(BaseModel):
+    model_id: int
+    change_type: Literal["initial", "append_images", "manual"] = "manual"
+    change_description: str = Field(default="", max_length=2000)
+
+
+class ModelVersionOutWithModel(ModelVersionOut):
+    model: ModelOut
