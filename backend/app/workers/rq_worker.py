@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+import os
+
 from app.core.config import get_settings
 from app.core.logging_setup import setup_logging
 from app.db.session import create_all
@@ -24,7 +26,8 @@ def main() -> None:
 
     requeue_stuck_jobs()
 
-    worker = SimpleWorker([queue], connection=conn, name=f"recon-worker-1")
+    # 唯一名称：进程被强杀后旧注册不会阻塞新实例
+    worker = SimpleWorker([queue], connection=conn, name=f"recon-worker-{os.getpid()}")
     worker.work(burst=False, with_scheduler=False)
 
 

@@ -12,7 +12,50 @@ import numpy as np
 
 
 def ply_stats(path: str | Path) -> dict:
-    """读取 PLY 顶点/面数/点数统计。"""
+    """读取 PLY 顶点/面数/点数统计（自解析，兼容 COLMAP 二进制 PLY）。"""
+    try:
+        with open(path, "rb") as f:
+            header = []
+            while True:
+                line = f.readline()
+                if not line:
+                    return {"vertex_count": 0, "face_count": 0, "point_count": 0}
+                header.append(line.decode("ascii", errors="replace").strip())
+                if line.strip() == b"end_header":
+                    break
+        n_vertex = n_face = 0
+        v_props: list[tuple[str, str]] = []
+        f_props: list[tuple[str, str]] = []
+        cur = None
+        for ln in header:
+            if ln.startswith("element"):
+                parts = ln.split()
+                cur = parts[1]
+                if cur == "vertex":
+                    n_vertex = int(parts[2])
+                elif cur == "face":
+                    n_face = int(parts[2])
+            elif ln.startswith("property"):
+                parts = ln.split()
+                if cur == "vertex":
+                    v_props.append((parts[1], parts[2]))
+                elif cur == "face" and parts[1] != "list":
+                    f_props.append((parts[1], parts[2]))
+        size = 0
+        _types = {"float": 4, "float32": 4, "double": 8, "uchar": 1, "uint8": 1, "int": 4, "int32": 4}
+        for t, _n in v_props:
+            size += _types.get(t, 4)
+        vertex_bytes = n_vertex * size
+        face_list_bytes = n_face * (1 + 3 * 4)  # list count + 3 int32（常见布局）
+        point_count = n_vertex if n_face == 0 else 0
+        return {
+            "vertex_count": int(n_vertex),
+            "face_count": int(n_face),
+            "point_count": int(point_count) if vertex_bytes else int(n_vertex),
+        }
+    except Exception:
+        pass
+    # 回退 trimesh（ASCII PLY 或解析失败时）
     import trimesh
 
     m = trimesh.load(path, force="mesh", process=False)

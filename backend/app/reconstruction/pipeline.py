@@ -38,8 +38,8 @@ logger = get_logger("pipeline")
 
 PRESET_PARAMS = {
     "fast": {"max_features": 4096, "poisson_depth": 8, "matcher_default": "sequential"},
-    "standard": {"max_features": 8192, "poisson_depth": 10, "matcher_default": "exhaustive"},
-    "high": {"max_features": 16384, "poisson_depth": 12, "matcher_default": "exhaustive"},
+    "standard": {"max_features": 8192, "poisson_depth": 8, "matcher_default": "exhaustive"},
+    "high": {"max_features": 16384, "poisson_depth": 10, "matcher_default": "exhaustive"},
 }
 
 
@@ -230,7 +230,15 @@ class ColmapPipeline:
 
         mesh_ply: Path | None = None
         if self.enable_mesh and fused_ply:
-            mesh_ply = self._stage_meshing(fused_ply)
+            try:
+                mesh_ply = self._stage_meshing(fused_ply)
+            except PipelineError as e:
+                if e.code == "CANCELLED":
+                    raise
+                # 网格生成失败/过慢不阻断任务：降级为点云产物并警告
+                result["warnings"].append(f"网格生成失败，已降级为点云导出: {e.message}")
+                ctx.job_log(f"[MESHING] 失败已降级: {e.message}")
+                ctx.set_stage_result("MESHING", "skipped", f"网格生成失败，已降级为点云导出（{e.message}）")
         else:
             ctx.set_stage_result("MESHING", "skipped", "未启用网格生成或无稠密点云输入")
 
@@ -300,7 +308,7 @@ class ColmapPipeline:
         ctx.set_stage_running(stage)
         db_path = work / "database.db"
         self.adapter.feature_extraction(db_path, ctx.work_dir / "images", ctx.log_file(stage), self._cc)
-        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, ["database.db"])
+        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, [str(db_path)])
         ctx.set_stage_result(stage, "completed", "SIFT 特征提取完成")
 
     def _stage_feature_matching(self, work: Path) -> str:
@@ -315,8 +323,9 @@ class ColmapPipeline:
         matcher = ctx.config.get("matcher", "auto")
         if matcher == "auto":
             matcher = self.ctx.params["matcher_default"]
-        self.adapter.feature_matching(work / "database.db", matcher, ctx.log_file(stage), self._cc)
-        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, ["database.db"])
+        db_path = work / "database.db"
+        self.adapter.feature_matching(db_path, matcher, ctx.log_file(stage), self._cc)
+        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, [str(db_path)])
         ctx.set_stage_result(stage, "completed", f"特征匹配完成（策略 {matcher}）")
         return matcher
 
@@ -370,8 +379,7 @@ class ColmapPipeline:
             marker = dense_dir / "cameras.bin"
         if not marker.is_file():
             raise PipelineError(stage, "NO_OUTPUT", "去畸变未生成相机模型")
-        rel = str(marker.relative_to(dense_dir))
-        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, [rel])
+        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, [str(marker)])
         ctx.set_stage_result(stage, "completed", "图像去畸变完成")
 
     def _stage_dense(self, dense_dir: Path) -> None:
@@ -384,7 +392,7 @@ class ColmapPipeline:
         ctx.check_cancel(stage)
         ctx.set_stage_running(stage)
         self.adapter.dense_stereo(dense_dir, ctx.log_file(stage), self._cc)
-        files = ["stereo/depth_maps.bin", "stereo/normal_maps.bin"]
+        files = [str(dense_dir / "stereo" / "depth_maps.bin"), str(dense_dir / "stereo" / "normal_maps.bin")]
         write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, files)
         ctx.set_stage_result(stage, "completed", "稠密深度图完成（GPU）")
 
@@ -413,10 +421,23 @@ class ColmapPipeline:
         ctx.check_cancel(stage)
         ctx.set_stage_running(stage)
         out_ply = stage_dir / "meshed-poisson.ply"
+        # 离群点过滤：远距离离群点会使 Poisson 八叉树覆盖巨大空域，耗时呈数量级增长
+        mesh_input = fused_ply
+        filtered = stage_dir / "fused-filtered.ply"
+        try:
+            removed = _filter_cloud_outliers(fused_ply, filtered)
+            if removed > 0 and filtered.is_file():
+                mesh_input = filtered
+                ctx.job_log(f"[{stage}] 离群点过滤：移除 {removed} 点")
+        except Exception as e:
+            ctx.job_log(f"[{stage}] 离群点过滤失败，使用原始点云: {e}")
         self.adapter.poisson_meshing(
-            fused_ply, out_ply, ctx.log_file(stage), self._cc, quality=self.ctx.params["poisson_depth"]
+            mesh_input, out_ply, ctx.log_file(stage), self._cc, quality=self.ctx.params["poisson_depth"]
         )
-        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, ["meshed-poisson.ply"])
+        write_manifest(
+            stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha},
+            ["meshed-poisson.ply"] + ([str(filtered)] if mesh_input is filtered else []),
+        )
         ctx.set_stage_result(stage, "completed", f"Poisson 网格生成完成（{human_size(out_ply.stat().st_size)}）")
         return out_ply
 
@@ -543,3 +564,61 @@ def _write_colored_ply(out_ply: Path, pts: "np.ndarray", cols: "np.ndarray") -> 
 
 
 import numpy as np  # noqa: E402  供 _write_colored_ply 使用
+
+
+def _filter_cloud_outliers(ply_path: Path, out_path: Path, pct: float = 0.5) -> int:
+    """按坐标百分位裁剪远距离离群点（针对 stereo_fusion 的二进制 PLY）。
+
+    逐轴取 [pct, 100-pct] 百分位并外扩 5% 域作为保留盒；返回被移除的点数。
+    解析失败时抛异常，由调用方回退为原始点云。
+    """
+    import struct as _struct
+
+    with open(ply_path, "rb") as f:
+        header_lines = []
+        while True:
+            line = f.readline()
+            header_lines.append(line.decode("ascii", errors="replace").strip())
+            if line.strip() == b"end_header":
+                break
+        text = "\n".join(header_lines)
+        if "format binary_little_endian" not in text:
+            raise ValueError("仅支持 binary_little_endian PLY")
+        # 解析 vertex 属性
+        in_vertex = False
+        props: list[tuple[str, str]] = []
+        n_points = 0
+        for ln in header_lines:
+            if ln.startswith("element"):
+                in_vertex = ln.split()[1] == "vertex"
+                if in_vertex:
+                    n_points = int(ln.split()[2])
+            elif ln.startswith("property") and in_vertex:
+                parts = ln.split()
+                props.append((parts[1], parts[2]))
+        if not n_points or not props:
+            raise ValueError("无顶点数据")
+
+        dtype = np.dtype([(name, {"float": "<f4", "float32": "<f4", "uchar": "u1", "uint8": "u1"}.get(t)) for t, name in props])
+        data = np.fromfile(f, dtype=dtype, count=n_points)
+
+    x = np.stack([data["x"], data["y"], data["z"]], axis=1)
+    lo = np.percentile(x, pct, axis=0)
+    hi = np.percentile(x, 100 - pct, axis=0)
+    margin = (hi - lo) * 0.05 + 1e-6
+    keep = np.all((x >= lo - margin) & (x <= hi + margin), axis=1)
+    removed = int((~keep).sum())
+    if removed == 0 or keep.sum() < 1000:
+        return 0  # 无明显离群点，或过滤后过少：不启用过滤
+
+    filtered = data[keep]
+    header = (
+        "ply\nformat binary_little_endian 1.0\n"
+        f"element vertex {len(filtered)}\n"
+        + "".join(f"property {t} {n}\n" for t, n in props)
+        + "end_header\n"
+    )
+    with open(out_path, "wb") as f:
+        f.write(header.encode("ascii"))
+        f.write(filtered.tobytes())
+    return removed

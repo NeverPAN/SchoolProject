@@ -14,13 +14,18 @@ from app.services.image_service import project_output_dir
 
 
 def register_job_models(db: Session, job: ReconstructionJob) -> list[Model]:
-    """任务导出完成后登记模型（幂等：重复调用会先清理该任务旧登记）。"""
+    """任务导出完成后登记模型（幂等：重复调用会先清理该任务旧登记及其版本）。"""
     from app.models.entities import Model as M
+    from app.models.entities import ModelVersion
 
     old = list(db.scalars(select(M).where(M.job_id == job.id)))
-    for m in old:
-        db.delete(m)
-    db.flush()
+    if old:
+        old_ids = [m.id for m in old]
+        for v in db.scalars(select(ModelVersion).where(ModelVersion.model_id.in_(old_ids))):
+            db.delete(v)
+        for m in old:
+            db.delete(m)
+        db.flush()
 
     out_dir = project_output_dir(job.project, job.id)
     exported_json = (

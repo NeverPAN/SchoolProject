@@ -35,10 +35,12 @@ def compute_sha_of(obj) -> str:
 def write_manifest(stage_dir: str | Path, stage: str, params: dict, inputs: dict, files: list[str]) -> dict:
     stage_dir = Path(stage_dir)
     file_entries = []
-    for rel in files:
-        p = stage_dir / rel
+    for entry in files:
+        p = Path(entry)
+        if not p.is_absolute():
+            p = stage_dir / entry
         if p.is_file():
-            file_entries.append({"path": rel, "sha256": sha256_file(p), "size": p.stat().st_size})
+            file_entries.append({"path": str(p), "sha256": sha256_file(p), "size": p.stat().st_size})
     manifest = {
         "stage": stage,
         "params_sha": compute_sha_of(params),
@@ -79,7 +81,9 @@ def stage_checkpoint_valid(stage_dir: str | Path, stage: str, params: dict, inpu
     if not files:
         return False
     for fe in files:
-        p = Path(stage_dir) / fe["path"]
+        p = Path(fe["path"])  # v2: 绝对路径；v1 兼容：相对 stage_dir
+        if not p.is_absolute():
+            p = Path(stage_dir) / fe["path"]
         if not p.is_file() or p.stat().st_size != fe.get("size"):
             return False
     return True
