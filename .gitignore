@@ -1,0 +1,43 @@
+# === 运行时数据 / 大文件 ===
+data/
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+
+# 大型数据集与模型产物不入 Git
+sample-data/*
+!sample-data/README.md
+!sample-data/generate_synthetic_dataset.py
+
+# === 依赖与构建 ===
+node_modules/
+dist/
+frontend/dist/
+backend/.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# === 环境与密钥 ===
+.env
+.env.local
+*.pem
+*.key
+
+# === 编辑器 / 系统 ===
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# === 日志 ===
+logs/
+*.log
+!docs/**/*.log
