@@ -1,12 +1,12 @@
 <template>
   <div ref="container" class="viewer-container">
-    <div v-if="loading" class="overlay">
+    <div v-if="loading || pending" class="overlay" role="status">
       <el-icon class="is-loading" :size="34"><Loading /></el-icon>
-      <div class="overlay-text">模型加载中… {{ Math.round(progress) }}%</div>
+      <div class="overlay-text">模型加载中…</div>
     </div>
-    <div v-else-if="error" class="overlay error">
+    <div v-else-if="error || fetchError" class="overlay error" role="alert">
       <el-icon :size="34"><WarningFilled /></el-icon>
-      <div class="overlay-text">{{ error }}</div>
+      <div class="overlay-text">{{ error || fetchError }}</div>
     </div>
     <div class="hud">
       <slot name="hud" />
@@ -27,8 +27,12 @@ export type BackgroundPreset = 'light' | 'dark' | 'gradient'
 
 const props = defineProps<{
   fileData: ArrayBuffer | null
+  pending?: boolean
+  fetchError?: string
   fileFormat: string // 'glb' | 'ply'
   style: StylePreset
+  displayUp?: [number, number, number] | null
+  legacySrgbVertexColors?: boolean
   background: BackgroundPreset
 }>()
 
@@ -38,13 +42,14 @@ const emit = defineEmits<{
 
 const container = ref<HTMLDivElement>()
 const loading = ref(false)
-const progress = ref(0)
 const error = ref('')
 
 let renderer: THREE.WebGLRenderer | null = null
 let scene: THREE.Scene | null = null
 let camera: THREE.PerspectiveCamera | null = null
 let controls: OrbitControls | null = null
+let pivot: THREE.Group | null = null
+const baseRotation = new THREE.Quaternion()
 let modelRoot: THREE.Group | null = null
 let frameId = 0
 let resizeObserver: ResizeObserver | null = null
@@ -60,7 +65,9 @@ function initScene() {
   const el = container.value!
   renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: false })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.setSize(el.clientWidth, el.clientHeight)
+  renderer.setSize(el.clientWidth, el.clientHeight, false)
+  renderer.domElement.classList.add('model-canvas')
+  renderer.domElement.setAttribute('aria-label', '三维模型画布')
   el.appendChild(renderer.domElement)
 
   scene = new THREE.Scene()
@@ -119,10 +126,11 @@ function applyBackground() {
 
 function onResize() {
   const el = container.value
-  if (!el || !renderer || !camera) return
+  if (!el || !renderer || !camera || !el.clientWidth || !el.clientHeight) return
   camera.aspect = el.clientWidth / el.clientHeight
   camera.updateProjectionMatrix()
-  renderer.setSize(el.clientWidth, el.clientHeight)
+  renderer.setSize(el.clientWidth, el.clientHeight, false)
+  if (pivot) fitCameraTo(pivot, true)
 }
 
 // ---------------------------------------------------------------------------
@@ -131,7 +139,8 @@ function onResize() {
 
 function clearModel() {
   if (!modelRoot || !scene) return
-  scene.remove(modelRoot)
+  if (pivot) scene.remove(pivot)
+  pivot = null
   disposeObject(modelRoot)
   modelRoot = null
 }
@@ -143,6 +152,8 @@ function disposeObject(root: THREE.Object3D) {
     const mat = (mesh as any).material
     if (Array.isArray(mat)) mat.forEach((m: THREE.Material) => m.dispose())
     else if (mat) mat.dispose()
+    const original = obj.userData.originalMaterial
+    if (original && original !== mat) (Array.isArray(original) ? original : [original]).forEach((m: THREE.Material) => m.dispose())
   })
 }
 
@@ -167,23 +178,30 @@ function computeCounts(root: THREE.Object3D) {
   return { vertices, faces: Math.round(faces), points }
 }
 
-function fitCameraTo(root: THREE.Object3D) {
+function fitCameraTo(root: THREE.Object3D, resize = false) {
   if (!camera || !controls) return
   const box = new THREE.Box3().setFromObject(root)
   if (box.isEmpty()) return
   const size = box.getSize(new THREE.Vector3())
   const center = box.getCenter(new THREE.Vector3())
   const maxDim = Math.max(size.x, size.y, size.z) || 1
-  const fov = (camera.fov * Math.PI) / 180
-  const dist = (maxDim / 2) / Math.tan(fov / 2) * 1.6
+  const vHalfFov = THREE.MathUtils.degToRad(camera.fov / 2)
+  const hHalfFov = Math.atan(Math.tan(vHalfFov) * camera.aspect)
+  const radius = size.length() / 2 || 0.5
+  const dist = 1.12 * radius / Math.sin(Math.min(vHalfFov, hHalfFov))
   const dir = new THREE.Vector3(0.7, 0.45, 1).normalize()
-  camera.position.copy(center).addScaledVector(dir, dist)
+  const oldHomeDist = homeView.pos.distanceTo(homeView.target)
+  if (resize && oldHomeDist > 0) {
+    camera.position.sub(controls.target).multiplyScalar(dist / oldHomeDist).add(controls.target)
+  } else {
+    camera.position.copy(center).addScaledVector(dir, dist)
+    controls.target.copy(center)
+  }
   camera.near = maxDim / 1000
   camera.far = dist * 20
   camera.updateProjectionMatrix()
-  controls.target.copy(center)
   controls.update()
-  homeView.pos.copy(camera.position)
+  homeView.pos.copy(center).addScaledVector(dir, dist)
   homeView.target.copy(center)
 
   // 网格大小适配
@@ -209,29 +227,19 @@ function buildFromGLB(data: ArrayBuffer) {
 function buildFromPLY(data: ArrayBuffer): THREE.Group {
   const loader = new PLYLoader()
   const geo = loader.parse(data)
-  geo.computeVertexNormals()
   const group = new THREE.Group()
   const hasColors = !!geo.getAttribute('color')
-  const hasNormals = !!geo.getAttribute('normal') && geo.getAttribute('normal')!.itemSize === 3
 
   // PLY 面数据存在 → 网格；否则点云
-  if (geo.index || (geo.attributes.position && !geo.getAttribute('normal') && false)) {
+  if (geo.index) {
     const material = new THREE.MeshStandardMaterial({
       vertexColors: hasColors,
       color: hasColors ? 0xffffff : 0xbfc8d1,
       side: THREE.DoubleSide,
-      flatShading: !hasNormals,
     })
     const mesh = new THREE.Mesh(geo, material)
     mesh.name = 'ply_mesh'
     group.add(mesh)
-    const pts = new THREE.Points(
-      geo,
-      new THREE.PointsMaterial({ size: 0.0, visible: false }),
-    )
-    pts.visible = false
-    pts.name = 'ply_hidden_points'
-    group.add(pts)
   } else {
     const material = new THREE.PointsMaterial({
       size: 0.02,
@@ -250,10 +258,15 @@ async function loadModel() {
   if (!props.fileData || !container.value) return
   loading.value = true
   error.value = ''
-  progress.value = 0
-  await new Promise((r) => setTimeout(r, 30))
   try {
-    if (!renderer) initScene()
+    if (!renderer) {
+      try {
+        initScene()
+      } catch (e) {
+        if (!renderer) throw new Error('当前浏览器无法启动 WebGL，仍可下载模型。')
+        throw e
+      }
+    }
     clearModel()
     let root: THREE.Group
     const fmt = props.fileFormat.toLowerCase()
@@ -264,11 +277,23 @@ async function loadModel() {
     } else {
       throw new Error(`不支持的模型格式: ${fmt}`)
     }
+    if (!container.value || !scene) {
+      disposeObject(root)
+      return
+    }
     modelRoot = root
-    scene!.add(root)
-    fitCameraTo(root)
-    applyStyle()
     const counts = computeCounts(root)
+    prepareMaterials(root, fmt === 'glb' && !!props.legacySrgbVertexColors)
+    const center = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3())
+    pivot = new THREE.Group()
+    pivot.add(root)
+    root.position.sub(center)
+    pivot.position.copy(center)
+    scene!.add(pivot)
+    const up = new THREE.Vector3(...(props.displayUp ?? [0, 1, 0]))
+    baseRotation.setFromUnitVectors(up.normalize(), new THREE.Vector3(0, 1, 0))
+    restoreOrientation()
+    applyStyle()
     const box = new THREE.Box3().setFromObject(root)
     const size = box.getSize(new THREE.Vector3())
     emit('loaded', {
@@ -288,87 +313,92 @@ async function loadModel() {
 // 风格预设（仅修改查看器材质，不修改源模型文件）
 // ---------------------------------------------------------------------------
 
-function applyStyle() {
-  if (!modelRoot) return
-  const style = props.style
-  modelRoot.traverse((obj) => {
-    const mesh = obj as THREE.Mesh
-    const geo = (mesh as any).geometry as THREE.BufferGeometry | undefined
-    if (!geo) return
-    const isPoints = (obj as any).isPoints as boolean
-
-    if (isPoints) {
-      const mat = obj.material as THREE.PointsMaterial
-      if (obj.name === 'ply_hidden_points') {
-        obj.visible = style === 'pointcloud'
-        mat.size = 0.015
-        return
+function prepareMaterials(root: THREE.Object3D, fixLegacyColor: boolean) {
+  const corrected = new Set<THREE.BufferGeometry>()
+  root.traverse((obj) => {
+    if (!(obj instanceof THREE.Mesh)) return
+    const geo = obj.geometry as THREE.BufferGeometry
+    if (!geo.getAttribute('normal')) geo.computeVertexNormals()
+    const colors = geo.getAttribute('color')
+    if (fixLegacyColor && colors && !corrected.has(geo)) {
+      corrected.add(geo)
+      const linear = new Float32Array(colors.count * colors.itemSize)
+      for (let i = 0; i < colors.count; i++) {
+        const c = new THREE.Color(colors.getX(i), colors.getY(i), colors.getZ(i)).convertSRGBToLinear()
+        const j = i * colors.itemSize
+        linear[j] = c.r
+        linear[j + 1] = c.g
+        linear[j + 2] = c.b
+        if (colors.itemSize === 4) linear[j + 3] = colors.getW(i)
       }
-      // 独立点云：风格只改颜色/大小
-      obj.visible = true
-      if (style === 'monochrome') {
-        mat.vertexColors = false
-        mat.color = new THREE.Color(0x8b8f96)
-        mat.size = 0.02
-      } else if (style === 'morandi') {
-        mat.vertexColors = false
-        mat.color = new THREE.Color(0xa8beb2)
-        mat.size = 0.02
-      } else {
-        mat.vertexColors = true
-        mat.color = new THREE.Color(0xffffff)
-        mat.size = 0.02
-      }
-      return
+      geo.setAttribute('color', new THREE.BufferAttribute(linear, colors.itemSize))
     }
-
-    // GLB / PLY 网格
-    const mat = obj.material as THREE.MeshStandardMaterial
-    const hasVertexColors = !!geo.getAttribute('color')
-
-    if (style === 'pointcloud') {
-      // 网格隐藏，用点显示
-      if (!obj.userData.__points) {
-        const pts = new THREE.Points(
-          geo,
-          new THREE.PointsMaterial({ size: 0.012, vertexColors: hasVertexColors, color: hasVertexColors ? 0xffffff : 0xaab2bd }),
-        )
-        pts.name = '__style_points'
-        obj.userData.__points = pts
-        obj.parent?.add(pts)
-        pts.position.copy(obj.position)
-        pts.rotation.copy(obj.rotation)
-        pts.scale.copy(obj.scale)
-      }
-      obj.userData.__points.visible = true
-      obj.visible = false
-      return
-    }
-    if (obj.userData.__points) obj.userData.__points.visible = false
-    obj.visible = true
-
-    mat.wireframe = style === 'wireframe'
-    if (style === 'original') {
-      mat.vertexColors = hasVertexColors && obj.name !== 'ply_mesh' ? true : hasVertexColors
-      mat.color = new THREE.Color(hasVertexColors ? 0xffffff : 0xbfc8d1)
-      mat.metalness = 0
-      mat.roughness = 0.85
-      if (obj.name.startsWith('Scene') || obj.userData.__isGltf) mat.vertexColors = hasVertexColors
-    } else if (style === 'morandi') {
-      mat.vertexColors = false
-      mat.color = new THREE.Color(MORANDI_PALETTE[(mesh.id | 0) % MORANDI_PALETTE.length])
-      mat.metalness = 0
-      mat.roughness = 0.9
-    } else if (style === 'monochrome') {
-      mat.vertexColors = false
-      mat.color = new THREE.Color(0x9ea6b0)
-      mat.metalness = 0
-      mat.roughness = 0.8
-    } else if (style === 'wireframe') {
-      mat.vertexColors = hasVertexColors
-      mat.color = new THREE.Color(hasVertexColors ? 0xffffff : 0x7d8691)
+    const materials = Array.isArray(obj.material) ? obj.material : [obj.material]
+    for (const mat of materials) {
+      mat.side = THREE.DoubleSide
+      if (mat instanceof THREE.MeshStandardMaterial) mat.flatShading = false
+      mat.needsUpdate = true
     }
   })
+}
+
+function applyStyle() {
+  if (!modelRoot) return
+  const meshes: THREE.Mesh[] = []
+  modelRoot.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) meshes.push(obj)
+    if (obj instanceof THREE.Points && !obj.userData.previewPoints) {
+      const mat = obj.material as THREE.PointsMaterial
+      mat.vertexColors = !!obj.geometry.getAttribute('color') && !['morandi', 'monochrome'].includes(props.style)
+      mat.color.setHex(mat.vertexColors ? 0xffffff : props.style === 'morandi' ? 0xa8beb2 : 0x9ea6b0)
+      mat.needsUpdate = true
+    }
+  })
+  for (const mesh of meshes) {
+    const state = mesh.userData
+    if (!state.originalMaterial) state.originalMaterial = mesh.material
+    if (state.styleMaterial) {
+      state.styleMaterial.dispose()
+      state.styleMaterial = null
+    }
+    mesh.material = state.originalMaterial
+    if (props.style === 'pointcloud' && !state.points) {
+      const colors = !!mesh.geometry.getAttribute('color')
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', mesh.geometry.getAttribute('position').clone())
+      if (colors) geo.setAttribute('color', mesh.geometry.getAttribute('color').clone())
+      const points = new THREE.Points(geo, new THREE.PointsMaterial({
+        size: 2, sizeAttenuation: false, vertexColors: colors, color: colors ? 0xffffff : 0xaab2bd,
+      }))
+      points.userData.previewPoints = true
+      points.position.copy(mesh.position)
+      points.quaternion.copy(mesh.quaternion)
+      points.scale.copy(mesh.scale)
+      mesh.parent?.add(points)
+      state.points = points
+    }
+    mesh.visible = props.style !== 'pointcloud'
+    if (state.points) state.points.visible = !mesh.visible
+    if (['morandi', 'monochrome', 'wireframe'].includes(props.style)) {
+      state.styleMaterial = new THREE.MeshStandardMaterial({
+        side: THREE.DoubleSide, wireframe: props.style === 'wireframe',
+        color: props.style === 'morandi' ? MORANDI_PALETTE[mesh.id % MORANDI_PALETTE.length] : 0x9ea6b0,
+      })
+      mesh.material = state.styleMaterial
+    }
+  }
+}
+
+function rotateOrientation(axis: 'x' | 'z', degrees: number) {
+  if (!pivot) return
+  pivot.rotateOnWorldAxis(axis === 'x' ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(degrees))
+  fitCameraTo(pivot)
+}
+
+function restoreOrientation() {
+  if (!pivot) return
+  pivot.quaternion.copy(baseRotation)
+  fitCameraTo(pivot)
 }
 
 function resetView() {
@@ -378,14 +408,13 @@ function resetView() {
   controls.update()
 }
 
-defineExpose({ resetView })
+defineExpose({ resetView, rotateOrientation, restoreOrientation })
 
 // ---------------------------------------------------------------------------
 // 生命周期
 // ---------------------------------------------------------------------------
 
 onMounted(() => {
-  initScene()
   if (props.fileData) loadModel()
 })
 
@@ -423,10 +452,10 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 480px;
   border-radius: 8px;
   overflow: hidden;
 }
+.viewer-container :deep(.model-canvas) { display: block; width: 100%; height: 100%; }
 .overlay {
   position: absolute;
   inset: 0;

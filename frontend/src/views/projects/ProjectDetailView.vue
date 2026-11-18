@@ -5,7 +5,7 @@
       <h3>{{ project.name }}</h3>
       <el-tag size="small" type="info">{{ project.description || '无描述' }}</el-tag>
       <div class="spacer" />
-      <el-button :icon="Search" :loading="qcLoading" @click="onQualityCheck">质量检查</el-button>
+      <el-button :icon="Search" :loading="qcLoading" :disabled="uploading" @click="onQualityCheck">质量检查</el-button>
       <el-button type="primary" :icon="VideoPlay" :disabled="!canSubmitJob" @click="jobDialogVisible = true">
         创建重建任务
       </el-button>
@@ -23,12 +23,21 @@
       <template #header>
         <div class="card-head">
           <span>图片管理</span>
-          <el-upload :show-file-list="false" :auto-upload="false" multiple accept=".jpg,.jpeg,.png,.tif,.tiff,.bmp,.webp" :on-change="onFilePick" :file-list="undefined">
-            <el-button type="primary" plain :icon="Upload" :loading="uploading" :disabled="uploadDisabled">上传图片</el-button>
-          </el-upload>
+          <input ref="filePicker" type="file" hidden multiple accept=".jpg,.jpeg,.png,.tif,.tiff,.bmp,.webp" @change="onFilePick" />
+          <el-button type="primary" plain :icon="Upload" :disabled="uploading" @click="filePicker?.click()">上传图片</el-button>
         </div>
       </template>
-      <el-progress v-if="uploading" :percentage="uploadPct" style="margin-bottom: 12px" />
+      <div v-if="uploadSummary" class="upload-summary" data-testid="upload-summary">
+        <el-progress :percentage="uploadPct" aria-label="图片上传总进度" />
+        <span role="status">{{ uploadSummary }}</span>
+      </div>
+      <ul v-if="uploadFailures.length" class="upload-failures" aria-label="上传失败的图片">
+        <li v-for="item in uploadFailures" :key="item.id">
+          <span><strong>{{ item.file.name }}</strong>：{{ item.reason }}</span>
+          <el-button size="small" :disabled="uploading" :aria-label="`重试 ${item.file.name}`" @click="uploadFiles([item])">重试</el-button>
+          <el-button size="small" text :disabled="uploading" :aria-label="`移除 ${item.file.name}`" @click="removeUploadFailure(item.id)">移除</el-button>
+        </li>
+      </ul>
       <div v-if="project.images.length === 0" class="empty">暂无图片，请先上传多视角图片（≥3 张，正式重建建议 100+ 张）</div>
       <div class="thumb-grid">
         <div v-for="img in project.images" :key="img.id" class="thumb-item">
@@ -78,8 +87,12 @@
       <template #header><span>模型列表</span></template>
       <el-table :data="models" size="small">
         <el-table-column label="模型 ID" width="80"><template #default="{ row }">#{{ row.id }}</template></el-table-column>
-        <el-table-column label="类型" width="140">
-          <template #default="{ row }">{{ modelTypeLabel(row.model_type) }} ({{ row.format.toUpperCase() }})</template>
+        <el-table-column label="类型" min-width="185">
+          <template #default="{ row }">
+            {{ modelTypeLabel(row.model_type) }} ({{ row.format.toUpperCase() }})
+            <el-tag v-if="isPhotoTexture(row)" type="success" size="small">照片贴图</el-tag>
+            <el-tag v-else-if="row.stage_origin === 'WEB_REEXPORT'" type="info" size="small">修正版</el-tag>
+          </template>
         </el-table-column>
         <el-table-column label="大小" width="110"><template #default="{ row }">{{ fmtSize(row.file_size) }}</template></el-table-column>
         <el-table-column label="顶点/点数" width="130"><template #default="{ row }">{{ (row.vertex_count || row.point_count || 0).toLocaleString() }}</template></el-table-column>
@@ -129,13 +142,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox, type UploadFile } from 'element-plus'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Loading, Search, Upload, VideoPlay } from '@element-plus/icons-vue'
 import {
   imageApi, jobApi, modelApi, projectApi,
   fmtSize, fmtTime, errMsg,
-  STAGE_LABELS, STATUS_LABELS,
+  STAGE_LABELS, STATUS_LABELS, isPhotoTexture,
   type ImageBrief, type Job, type ModelItem, type ProjectDetail,
 } from '../../api'
 
@@ -147,12 +160,19 @@ const thumbs = ref<Record<number, string>>({})
 const qcLoading = ref(false)
 const uploading = ref(false)
 const uploadPct = ref(0)
+const uploadSummary = ref('')
+const filePicker = ref<HTMLInputElement | null>(null)
+interface UploadEntry { id: number; file: File }
+const uploadFailures = ref<(UploadEntry & { reason: string })[]>([])
+const MAX_BATCH_FILES = 12
+const MAX_BATCH_BYTES = 64 * 1024 * 1024
+let uploadRequest: AbortController | undefined
+let nextUploadId = 0
 const jobDialogVisible = ref(false)
 const submitting = ref(false)
 const jobForm = ref({ preset: 'standard', matcher: 'auto', enable_dense: true, enable_mesh: true })
 
-const canSubmitJob = computed(() => (project.value?.image_count ?? 0) >= 3)
-const uploadDisabled = computed(() => !project.value)
+const canSubmitJob = computed(() => !uploading.value && (project.value?.image_count ?? 0) >= 3)
 const qualityText = computed(() => {
   const q = project.value?.quality_summary || {}
   return `OK ${q.ok || 0} / 警告 ${q.warning || 0} / 无效 ${q.invalid || 0}`
@@ -185,22 +205,87 @@ async function loadAll() {
   }
 }
 
-async function onFilePick(file: UploadFile) {
-  if (!file.raw) return
+function* uploadBatches(entries: UploadEntry[]) {
+  let batch: UploadEntry[] = []
+  let bytes = 0
+  const names = new Set<string>()
+  for (const entry of entries) {
+    // Partial errors identify the original multipart filename, not its index.
+    if (batch.length && (batch.length >= MAX_BATCH_FILES || bytes + entry.file.size > MAX_BATCH_BYTES || names.has(entry.file.name))) {
+      yield batch
+      batch = []
+      bytes = 0
+      names.clear()
+    }
+    batch.push(entry)
+    bytes += entry.file.size
+    names.add(entry.file.name)
+  }
+  if (batch.length) yield batch
+}
+
+function onFilePick(event: Event) {
+  const input = event.target as HTMLInputElement
+  const entries = Array.from(input.files || [], (file) => ({ id: ++nextUploadId, file }))
+  input.value = ''
+  void uploadFiles(entries)
+}
+
+function removeUploadFailure(id: number) {
+  uploadFailures.value = uploadFailures.value.filter((entry) => entry.id !== id)
+}
+
+async function uploadFiles(entries: UploadEntry[]) {
+  if (!entries.length || uploading.value) return
+  const request = new AbortController()
+  uploadRequest = request
+  const weight = ({ file }: UploadEntry) => Math.max(1, file.size)
+  const bytes = (batch: UploadEntry[]) => batch.reduce((sum, entry) => sum + weight(entry), 0)
+  const total = bytes(entries)
+  const retryIds = new Set(entries.map((entry) => entry.id))
+  uploadFailures.value = uploadFailures.value.filter((entry) => !retryIds.has(entry.id))
+  let processed = 0
+  let uploaded = 0
+  let failed = 0
+  let completed = 0
+  const fail = (entry: UploadEntry, reason: string) => {
+    uploadFailures.value.push({ ...entry, reason })
+    failed++
+  }
   uploading.value = true
   uploadPct.value = 0
+  uploadSummary.value = `上传中：${completed}/${entries.length} 张已处理`
   try {
-    const r = await imageApi.upload(Number(props.id), [file.raw], (p) => (uploadPct.value = p))
-    const errs = (r as any).partial_errors
-    if (errs && errs.length) {
-      ElMessage.warning(`部分文件上传失败: ${errs[0].error}`)
-    } else {
-      ElMessage.success(`${file.name} 上传成功`)
+    for (const batch of uploadBatches(entries)) {
+      if (request.signal.aborted) return
+      const batchBytes = bytes(batch)
+      try {
+        const result = await imageApi.upload(Number(props.id), batch.map(({ file }) => file), (fraction) => {
+          uploadPct.value = Math.min(99, Math.floor(100 * (processed + batchBytes * fraction) / total))
+        }, request.signal)
+        if (request.signal.aborted) return
+        const errors = new Map((result.partial_errors || []).map((error) => [error.filename, error.error]))
+        const confirmed = batch.length - errors.size === result.items.length &&
+          [...errors.keys()].every((name) => batch.some(({ file }) => file.name === name))
+        for (const entry of batch) {
+          if (errors.has(entry.file.name)) fail(entry, errors.get(entry.file.name) || '上传失败')
+          else if (confirmed) uploaded++
+          else fail(entry, '服务器未确认此文件的上传结果，请核对图片列表后重试')
+        }
+      } catch (e) {
+        if (request.signal.aborted) return
+        const reason = batch.length > 1 ? `该批未确认上传结果：${errMsg(e)}` : errMsg(e)
+        for (const entry of batch) fail(entry, reason)
+      }
+      processed += batchBytes
+      completed += batch.length
+      uploadPct.value = Math.floor(100 * processed / total)
+      uploadSummary.value = `上传中：${completed}/${entries.length} 张已处理 · 成功 ${uploaded} · 未成功 ${failed}`
     }
     await loadAll()
-  } catch (e) {
-    ElMessage.error(errMsg(e))
+    if (!request.signal.aborted) uploadSummary.value = `上传处理完成：成功 ${uploaded} 张 · 未成功 ${failed} 张`
   } finally {
+    if (uploadRequest === request) uploadRequest = undefined
     uploading.value = false
   }
 }
@@ -247,6 +332,7 @@ async function onSubmitJob() {
 }
 
 onMounted(loadAll)
+onBeforeUnmount(() => uploadRequest?.abort())
 </script>
 
 <style scoped>
@@ -264,6 +350,11 @@ onMounted(loadAll)
 .stat .label { font-size: 12px; color: #909399; margin-top: 4px; }
 .section { margin-bottom: 16px; }
 .card-head { display: flex; justify-content: space-between; align-items: center; }
+.upload-summary { margin-bottom: 12px; color: var(--el-text-color-regular); font-size: 13px; }
+.upload-failures { list-style: none; padding: 0; margin: 0 0 12px; }
+.upload-failures li { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 0; }
+.upload-failures span { overflow-wrap: anywhere; color: var(--el-text-color-regular); }
+.upload-failures .el-button { margin: 0; }
 .thumb-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

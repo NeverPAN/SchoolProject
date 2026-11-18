@@ -44,9 +44,26 @@ def get_model(
 ):
     m = model_service.get_model_checked(db, model_id, user.id)
     versions = list(db.scalars(select(ModelVersion).where(ModelVersion.model_id == m.id).order_by(ModelVersion.version_number)))
+    display = {}
+    try:
+        manifest = json.loads((Path(m.file_path).parent / "job_manifest.json").read_text(encoding="utf-8"))
+        if manifest.get("job_id") == m.job_id:
+            display = manifest
+    except (OSError, ValueError, AttributeError):
+        pass
+    up = None if m.stage_origin == "PHOTO_TEXTURE_UPRIGHT" else display.get("display_up")
+    from math import isfinite
+
+    valid_up = (isinstance(up, list) and len(up) == 3
+                and all(type(v) in (float, int) and isfinite(v) for v in up)
+                and any(up))
     return ModelDetailOut(
         **ModelOut.model_validate(m).model_dump(),
         versions=[ModelVersionOut.model_validate(v) for v in versions],
+        display_up=tuple(up) if valid_up else None,
+        legacy_srgb_vertex_colors=(m.model_type == "web" and m.format == "glb"
+                                   and Path(m.file_path).name == "model.glb"
+                                   and display.get("mesh_glb_color_space") == "srgb"),
     )
 
 

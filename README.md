@@ -77,7 +77,8 @@ cd frontend && npm run build            # 前端类型检查 + 构建
 - `docs/reconstruction-pipeline.md` — 重建管线与阶段映射
 - `docs/testing-plan.md` — 测试计划与报告
 - `docs/environment-report.md` — 运行环境报告（A800 服务器）
-- `docs/deployment.md` — 部署说明
+- `docs/deployment.md` — 部署、备份恢复与离线演示
+- [第二阶段验收报告](docs/phase2-acceptance.md) — 正式数据、在线贴图、故障恢复及性能对照
 
 ## 目录结构
 

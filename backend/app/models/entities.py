@@ -47,7 +47,8 @@ PIPELINE_STAGES: list[tuple[str, int]] = [
     ("IMAGE_UNDISTORTION", 5),
     ("DENSE_RECONSTRUCTION", 25),
     ("STEREO_FUSION", 10),
-    ("MESHING", 10),
+    ("MESHING", 8),
+    ("TEXTURING", 2),
     ("EXPORTING", 5),
 ]
 STAGE_NAMES = [s for s, _ in PIPELINE_STAGES]

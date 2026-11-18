@@ -1,0 +1,283 @@
+2026-11-18T14:54:31+08:00
+185797, 672 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          336740 100
+3026210797	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T14:55:01+08:00
+185797, 416 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          415240 100
+3067959943	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T14:55:31+08:00
+185797, 672 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          339932 100
+3099280359	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T14:56:01+08:00
+185797, 644 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          342484 99.9
+3141032954	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T14:56:31+08:00
+185797, 672 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          342484 99.9
+3182785923	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T14:57:01+08:00
+185797, 548 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          347124 99.9
+3224538146	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T14:57:31+08:00
+185797, 672 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          347124 99.9
+3276726967	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T14:58:01+08:00
+185797, 640 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          347124 99.8
+3318496386	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T14:58:31+08:00
+185797, 672 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          347124 99.8
+3360249456	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T14:59:01+08:00
+185797, 644 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          347124 99.8
+3402002304	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T14:59:31+08:00
+185797, 672 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          347124 99.8
+3443755505	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:00:01+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          772936 99.8
+3475070958	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:00:31+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          823876 99.8
+3506385721	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:01:02+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          862716 99.8
+3537700262	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:01:32+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          905380 99.8
+3569014962	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:02:02+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          915568 97.9
+3589892545	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:02:32+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          966508 95.6
+3621206579	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:03:02+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          976696 93.4
+3642084097	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:03:32+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1017448 93.4
+3673398443	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:04:02+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1048012 93.6
+3694276267	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:04:32+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1046100 93.8
+3725590617	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:05:03+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1078576 94.0
+3756905118	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:05:33+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1107228 94.1
+3788219690	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:06:03+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1132064 94.3
+3809097740	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:06:33+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1168360 94.4
+3840412315	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:07:03+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1231708 94.5
+3871726890	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:07:33+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1262272 94.6
+3903041538	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:08:03+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1272460 94.7
+3934356408	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:08:33+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1290924 94.9
+3965671055	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:09:03+08:00
+185797, 752 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1333588 95.0
+3986549253	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:09:33+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1352052 95.1
+4017863978	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:10:03+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1415092 95.1
+4049178401	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:10:33+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1466032 95.2
+4080492976	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:11:03+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1474308 95.3
+4111807550	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:11:33+08:00
+185797, 752 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1474308 95.3
+4132685674	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:12:03+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1503304 95.4
+4164008366	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:12:33+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1523680 95.5
+4195322867	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:13:03+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1523680 95.6
+4226637368	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:13:33+08:00
+185797, 622 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1457328 95.7
+4257951366	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:14:03+08:00
+185797, 630 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1447272 95.7
+4289265195	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:14:33+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1533868 95.8
+4320579665	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:15:03+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1533868 95.9
+4351894284	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:15:34+08:00
+185797, 670 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1511584 96.0
+4383208619	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:16:04+08:00
+185797, 732 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1564432 96.0
+4414523026	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:16:34+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1566980 96.1
+4445845602	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:17:04+08:00
+185797, 718 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1546604 96.1
+4466723435	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:17:34+08:00
+185797, 704 MiB
+    PID COMMAND           RSS %CPU
+ 185797 colmap          1566980 96.2
+4498038161	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:18:04+08:00
+    PID COMMAND           RSS %CPU
+ 192363 colmap          1465788 1397
+4508589892	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:18:34+08:00
+    PID COMMAND           RSS %CPU
+ 192837 colmap          1417248 243
+4577844569	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:19:04+08:00
+    PID COMMAND           RSS %CPU
+ 192837 colmap          12202032 111
+4577847218	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:19:34+08:00
+    PID COMMAND           RSS %CPU
+ 192837 colmap          9776636 105
+4691183843	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:20:04+08:00
+    PID COMMAND           RSS %CPU
+ 193091 colmap          8208336 120
+4737397397	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:20:34+08:00
+    PID COMMAND           RSS %CPU
+ 193326 colmap          7972000 121
+4786759043	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:21:04+08:00
+    PID COMMAND           RSS %CPU
+ 193513 colmap          518568 109
+4816913664	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:21:34+08:00
+    PID COMMAND           RSS %CPU
+ 193513 colmap          518552 104
+4816926660	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:22:04+08:00
+    PID COMMAND           RSS %CPU
+ 193513 colmap          443612 102
+4816939546	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:22:34+08:00
+    PID COMMAND           RSS %CPU
+ 193513 colmap          519084 101
+4816951530	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:23:04+08:00
+    PID COMMAND           RSS %CPU
+ 193513 colmap          519084 101
+4816964504	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3
+2026-11-18T15:23:34+08:00
+    PID COMMAND           RSS %CPU
+ 193513 colmap          519084 101
+4816977478	/tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3

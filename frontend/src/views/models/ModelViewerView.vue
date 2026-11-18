@@ -3,25 +3,28 @@
     <div class="toolbar">
       <el-button :icon="ArrowLeft" text @click="$router.back()">返回</el-button>
       <h3>三维模型查看 #{{ id }}</h3>
+      <el-tag v-if="model && isPhotoTexture(model)" type="success" size="small">照片贴图 · GLB</el-tag>
       <div class="spacer" />
-      <el-button :icon="Refresh" @click="viewer?.resetView()">重置视角</el-button>
+      <el-button :icon="Refresh" :disabled="!info.sizeLabel" @click="viewer?.resetView()">重置视角</el-button>
       <el-button type="primary" :icon="Download" @click="onDownload">下载模型</el-button>
     </div>
 
-    <el-row :gutter="16">
-      <el-col :span="19">
-        <div class="viewer-wrap">
+    <div class="viewer-layout">
+      <div class="viewer-wrap">
           <ModelViewer
             ref="viewer"
             :file-data="fileData"
+            :pending="pending"
+            :fetch-error="fetchError"
+            :display-up="model?.display_up"
+            :legacy-srgb-vertex-colors="model?.legacy_srgb_vertex_colors"
             :file-format="model?.format || 'glb'"
             :style="stylePreset"
             :background="bgPreset"
             @loaded="onLoaded"
           />
-        </div>
-      </el-col>
-      <el-col :span="5">
+      </div>
+      <div class="viewer-sidebar">
         <el-card shadow="never" class="panel">
           <template #header><span>展示风格</span></template>
           <div class="style-grid">
@@ -33,6 +36,15 @@
               @click="stylePreset = s.key"
             >{{ s.label }}</el-button>
           </div>
+          <el-divider />
+          <span class="label">模型朝向</span>
+          <div class="style-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 8px">
+            <el-button size="small" :disabled="!info.sizeLabel" @click="viewer?.rotateOrientation('x', 90)">俯仰 90°</el-button>
+            <el-button size="small" :disabled="!info.sizeLabel" @click="viewer?.rotateOrientation('z', 90)">侧转 90°</el-button>
+            <el-button size="small" :disabled="!info.sizeLabel" @click="viewer?.rotateOrientation('z', 180)">翻转 180°</el-button>
+            <el-button size="small" :disabled="!info.sizeLabel" @click="viewer?.restoreOrientation()">恢复朝向</el-button>
+          </div>
+          <p class="ver-desc">{{ orientationHint }}仅影响预览。</p>
           <el-divider />
           <span class="label">背景</span>
           <el-radio-group v-model="bgPreset" size="small" style="margin-top: 8px">
@@ -67,26 +79,33 @@
             </el-timeline>
           </template>
         </el-card>
-      </el-col>
-    </el-row>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Download, Refresh } from '@element-plus/icons-vue'
 import ModelViewer, { type StylePreset, type BackgroundPreset } from '../../three/ModelViewer.vue'
-import { modelApi, fmtSize, fmtTime, errMsg, type ModelItem } from '../../api'
+import { modelApi, fmtSize, fmtTime, errMsg, isPhotoTexture, type ModelDetail } from '../../api'
 
 const props = defineProps<{ id: string }>()
 const viewer = ref<InstanceType<typeof ModelViewer> | null>(null)
-const model = ref<ModelItem | null>(null)
+const model = ref<ModelDetail | null>(null)
 const fileData = ref<ArrayBuffer | null>(null)
+const pending = ref(true)
+const fetchError = ref('')
 const stylePreset = ref<StylePreset>('original')
 const bgPreset = ref<BackgroundPreset>('gradient')
 const counts = ref({ vertices: 0, faces: 0, points: 0 })
 const info = ref({ sizeLabel: '' })
+const orientationHint = computed(() => {
+  if (model.value?.stage_origin === 'PHOTO_TEXTURE_UPRIGHT') return '导出模型已校正默认朝向。'
+  if (model.value?.display_up) return '默认朝向根据拍摄视角估算。'
+  return '未检测到可靠的上方向，可手动校正。'
+})
 
 const styles: { key: StylePreset; label: string }[] = [
   { key: 'original', label: '写实' },
@@ -126,17 +145,26 @@ onMounted(async () => {
     }
     fileData.value = await modelApi.fetchFile(Number(props.id))
   } catch (e) {
-    ElMessage.error(errMsg(e))
+    fetchError.value = `模型加载失败：${errMsg(e)}`
+  } finally {
+    pending.value = false
   }
 })
 </script>
 
 <style scoped>
-.toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 14px; }
 .toolbar h3 { margin: 0; }
+.toolbar .el-button { margin: 0; }
 .spacer { flex: 1; }
-.viewer-wrap { height: calc(100vh - 160px); min-height: 480px; }
-.panel { height: calc(100vh - 160px); overflow: auto; }
+.viewer-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(235px, 280px); gap: 16px; }
+.viewer-wrap { height: max(320px, calc(100dvh - 160px)); }
+.panel { max-height: max(320px, calc(100dvh - 160px)); overflow: auto; }
+@media (max-width: 760px) {
+  .viewer-layout { grid-template-columns: minmax(0, 1fr); }
+  .viewer-wrap { height: clamp(240px, 58dvh, 480px); }
+  .panel { max-height: none; }
+}
 .style-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .style-grid .el-button { margin: 0; width: 100%; }
 .label { font-size: 13px; color: #606266; font-weight: 600; }

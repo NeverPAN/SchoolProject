@@ -1,0 +1,60 @@
+
+=== 1. 服务健康检查 ===
+服务状态: ok, 重建模式: colmap, COLMAP: True (GPU: True)
+
+=== 2. 注册/登录 ===
+用户 e2e_user 登录成功
+
+=== 3. 创建项目 ===
+项目 #1: E2E-重建测试-1794979062
+
+=== 4. 上传图片 ===
+待上传 40 张
+  进度: 10/40
+  进度: 20/40
+  进度: 30/40
+  进度: 40/40
+上传完成: 成功 40 / 失败 0
+
+=== 5. 图片质量检查 ===
+质量检查: {'checked': 40, 'ok': 40, 'warning': 0, 'invalid': 0}
+
+=== 6. 提交重建任务 ===
+任务 #1 已提交（mode=colmap）
+
+=== 7. 等待重建完成 ===
+  [0s] status=QUEUED stage=- progress=0%
+  [5s] status=RUNNING stage=SPARSE_RECONSTRUCTION progress=30%
+  [25s] status=RUNNING stage=IMAGE_UNDISTORTION progress=45%
+  [30s] status=RUNNING stage=DENSE_RECONSTRUCTION progress=50%
+  [816s] status=RUNNING stage=STEREO_FUSION progress=75%
+  [831s] status=RUNNING stage=MESHING progress=85%
+  [836s] status=RUNNING stage=TEXTURING progress=93%
+  [876s] status=SUCCEEDED stage=- progress=100%
+任务成功，总耗时 877s
+
+=== 8. 校验阶段事件 ===
+  IMAGE_VALIDATION         completed  0.2s  校验完成：40 张有效
+  FEATURE_EXTRACTION       completed  2.6s  SIFT 特征提取完成
+  FEATURE_MATCHING         completed  1.5s  特征匹配完成（策略 sequential）
+  SPARSE_RECONSTRUCTION    completed  19.3s  稀疏重建完成：0
+  IMAGE_UNDISTORTION       completed  3.5s  图像去畸变完成
+  DENSE_RECONSTRUCTION     completed  787.6s  稠密深度图完成（GPU）
+  STEREO_FUSION            completed  14.8s  点云融合完成（14.1 MB）
+  MESHING                  completed  3.8s  Poisson 网格生成完成（416.7 KB）
+  TEXTURING                completed  41.5s  照片贴图完成
+  EXPORTING                completed  0.5s  导出 5 个产物
+阶段状态全部可解释: True
+
+=== 9. 校验模型产物 ===
+  #5 web                  glb  4.9 MB 顶点 12574 面 17674 点 0
+  #4 web                  glb  0.6 MB 顶点 10295 面 17674 点 0
+  #3 mesh                 ply  0.4 MB 顶点 10295 面 17674 点 0
+  #2 dense_pointcloud     ply  14.1 MB 顶点 546513 面 0 点 546513
+  #1 sparse_pointcloud    ply  0.3 MB 顶点 9345 面 0 点 9345
+
+=== 10. 下载模型 ===
+已下载 data/e2e-results/model_5.glb（4.9 MB, 格式校验 OK）
+模型版本: ['v1']
+
+=== E2E 全链路测试通过 ===

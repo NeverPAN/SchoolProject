@@ -1,0 +1,33 @@
+{
+  "alembic_revision": "22651a4c6e93",
+  "backup": {
+    "bundle": "/tmp/recon-sqlite-drill-q6bl1la1/data files/backups/recon-bz36tcxs",
+    "bytes": 94208,
+    "created_at_utc": "2026-11-18T05:17:53+00:00",
+    "database": "recon.db",
+    "format": 1,
+    "integrity_check": "ok",
+    "sha256": "3efac8bbe7ac62664028548e734e83a3e3735b8b86a56dc3d183c6de0d6c5a7f",
+    "sqlite_version": "3.39.3"
+  },
+  "checks": {
+    "committed_wal_row": true,
+    "existing_destination_refused": true,
+    "foreign_keys_ok": true,
+    "missing_source_refused": true,
+    "tampered_backup_refused": true,
+    "uncommitted_row_excluded": true,
+    "unexpected_sidecar_refused": true
+  },
+  "restore": {
+    "backup_created_at_utc": "2026-11-18T05:17:53+00:00",
+    "bytes": 94208,
+    "database": "recon.db",
+    "destination": "/tmp/recon-sqlite-drill-q6bl1la1/restored",
+    "integrity_check": "ok",
+    "restored_at_utc": "2026-11-18T05:17:53+00:00",
+    "sha256": "3efac8bbe7ac62664028548e734e83a3e3735b8b86a56dc3d183c6de0d6c5a7f",
+    "sqlite_version": "3.39.3"
+  },
+  "work_dir": "/tmp/recon-sqlite-drill-q6bl1la1"
+}

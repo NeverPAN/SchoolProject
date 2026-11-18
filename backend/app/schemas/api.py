@@ -221,6 +221,8 @@ class ModelOut(BaseModel):
 
 class ModelDetailOut(ModelOut):
     versions: list["ModelVersionOut"] = []
+    display_up: tuple[float, float, float] | None = None
+    legacy_srgb_vertex_colors: bool = False
 
 
 class ModelVersionOut(BaseModel):

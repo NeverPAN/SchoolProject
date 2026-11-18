@@ -24,10 +24,15 @@ def main() -> None:
     conn = Redis.from_url(settings.redis_url)
     queue = Queue("recon", connection=conn)
 
+    class ReconWorker(SimpleWorker):
+        def run_maintenance_tasks(self):
+            super().run_maintenance_tasks()
+            requeue_stuck_jobs()
+
     requeue_stuck_jobs()
 
     # 唯一名称：进程被强杀后旧注册不会阻塞新实例
-    worker = SimpleWorker([queue], connection=conn, name=f"recon-worker-{os.getpid()}")
+    worker = ReconWorker([queue], connection=conn, name=f"recon-worker-{os.getpid()}")
     worker.work(burst=False, with_scheduler=False)
 
 

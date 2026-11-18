@@ -1,0 +1,7 @@
+2026-11-18 14:37:27 开始执行任务 3（mode=colmap, preset=standard）
+2026-11-18 14:37:31 [IMAGE_VALIDATION] 校验完成：100 张有效 耗时 2.3s
+2026-11-18 14:46:11 [SPARSE_RECONSTRUCTION] 稀疏模型目录: /tmp/phase2-run.EnRwa6/scratch/users/2/projects/3/jobs/3/checkpoints/SPARSE_RECONSTRUCTION/model
+2026-11-18 15:18:26 [MESHING] 离群点过滤：移除 8023 点
+2026-11-18 15:23:37 [TEXTURING] 朝向估计不可用: 阶段超时（>180s）: model_orientation_aligner
+2026-11-18 15:23:42 [EXPORTING] 导出清单: ['sparse_pointcloud.ply', 'dense_pointcloud.ply', 'mesh.ply', 'model.glb', 'model_photo.glb']
+2026-11-18 15:23:42 任务完成：登记 5 个模型

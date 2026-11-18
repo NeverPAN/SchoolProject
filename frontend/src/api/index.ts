@@ -107,6 +107,11 @@ export interface ModelItem {
   versions?: ModelVersion[]
 }
 
+export interface ModelDetail extends ModelItem {
+  display_up?: [number, number, number] | null
+  legacy_srgb_vertex_colors: boolean
+}
+
 // ---------- Auth ----------
 
 export const authApi = {
@@ -150,16 +155,22 @@ export const projectApi = {
 
 // ---------- Images ----------
 
+interface ImageUploadResult {
+  items: ImageDetail[]
+  partial_errors: { filename: string; error: string; code: string }[]
+}
+
 export const imageApi = {
-  async upload(projectId: number, files: File[], onProgress?: (pct: number) => void): Promise<{ items: ImageDetail[]; partial_errors?: any[] }> {
+  async upload(projectId: number, files: File[], onProgress: (fraction: number) => void, signal?: AbortSignal): Promise<ImageUploadResult> {
     const form = new FormData()
     for (const f of files) form.append('files', f)
-    const r = await api.post(`/projects/${projectId}/images`, form, {
+    const r = await api.post<ImageDetail[] | ImageUploadResult>(`/projects/${projectId}/images`, form, {
+      signal,
       onUploadProgress: (e) => {
-        if (e.total && onProgress) onProgress(Math.round((e.loaded / e.total) * 100))
+        if (e.total) onProgress(Math.min(1, e.loaded / e.total))
       },
     })
-    return r.data
+    return Array.isArray(r.data) ? { items: r.data, partial_errors: [] } : r.data
   },
   async list(projectId: number): Promise<ImageDetail[]> {
     const r = await api.get(`/projects/${projectId}/images`)
@@ -212,7 +223,7 @@ export const modelApi = {
     const r = await api.get(`/projects/${projectId}/models`)
     return r.data
   },
-  async get(id: number): Promise<ModelItem> {
+  async get(id: number): Promise<ModelDetail> {
     const r = await api.get(`/models/${id}`)
     return r.data
   },
@@ -221,7 +232,7 @@ export const modelApi = {
     const url = URL.createObjectURL(r.data)
     const a = document.createElement('a')
     a.href = url
-    a.download = `model_${id}.${r.headers['content-type']?.includes('gltf') ? 'glb' : 'ply'}`
+    a.download = `model_${id}.${String(r.headers['content-type'] ?? '').includes('gltf') ? 'glb' : 'ply'}`
     a.click()
     URL.revokeObjectURL(url)
   },
@@ -239,6 +250,11 @@ export const modelApi = {
 }
 
 export { errMsg }
+
+export function isPhotoTexture(model: ModelItem): boolean {
+  return model.format.toLowerCase() === 'glb' &&
+    (model.stage_origin === 'PHOTO_TEXTURE_UPRIGHT' || model.stage_origin === 'PHOTO_TEXTURE')
+}
 
 export function fmtSize(n: number): string {
   if (n < 1024) return `${n} B`
@@ -261,6 +277,7 @@ export const STAGE_LABELS: Record<string, string> = {
   DENSE_RECONSTRUCTION: '稠密重建',
   STEREO_FUSION: '点云融合',
   MESHING: '网格生成',
+  TEXTURING: '照片贴图',
   EXPORTING: '模型导出',
 }
 

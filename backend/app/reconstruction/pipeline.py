@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import json
 import shutil
+import sqlite3
 import time
 from collections.abc import Callable
 from pathlib import Path
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
@@ -22,14 +22,16 @@ from app.core.logging_setup import get_logger
 from app.models.entities import (
     PIPELINE_STAGES,
     JobStageEvent,
-    Model,
-    ModelVersion,
     ReconstructionJob,
 )
 from app.reconstruction import export as export_tools
 from app.reconstruction.manifest import (
+    atomic_write_json,
+    checked_manifest,
+    checkpoint_fingerprint,
     compute_sha_of,
-    stage_checkpoint_valid,
+    input_manifest_sha,
+    sha256_file,
     write_manifest,
 )
 from app.utils.files import human_size, sanitize_filename
@@ -37,10 +39,18 @@ from app.utils.files import human_size, sanitize_filename
 logger = get_logger("pipeline")
 
 PRESET_PARAMS = {
+    # poisson_depth 与开发指南的预设表一致（fast=8 / standard=10 / high=12）。
+    # 第二轮在正式 Bridge 数据上的 depth×trim 对照表明：同一份 2000px 稠密点云，
+    # depth 10 的点支撑面积 74.3%、无支撑外插 11.1%，显著优于 depth 8 的 65.7%/27.8%。
+    # high 的 depth 12 网格量级可达数百万面，贴图与查看器开销大，未在本轮验收。
     "fast": {"max_features": 4096, "poisson_depth": 8, "matcher_default": "sequential"},
-    "standard": {"max_features": 8192, "poisson_depth": 8, "matcher_default": "exhaustive"},
-    "high": {"max_features": 16384, "poisson_depth": 10, "matcher_default": "exhaustive"},
+    "standard": {"max_features": 8192, "poisson_depth": 10, "matcher_default": "exhaustive"},
+    "high": {"max_features": 16384, "poisson_depth": 12, "matcher_default": "exhaustive"},
 }
+
+
+POISSON_THREADS = 4
+SPARSE_MODEL_FILES = ("cameras.bin", "images.bin", "points3D.bin")
 
 
 class PipelineError(Exception):
@@ -78,8 +88,8 @@ class PipelineContext:
 
         from app.services.image_service import project_job_dir, project_output_dir
 
-        self.work_dir = project_job_dir(project, job.id)
-        self.out_dir = project_output_dir(project, job.id)
+        self.work_dir = project_job_dir(project, job.id).resolve()
+        self.out_dir = project_output_dir(project, job.id).resolve()
         self.logs_dir = self.work_dir / "logs"
         self.checkpoints_dir = self.work_dir / "checkpoints"
         for d in (self.work_dir, self.out_dir, self.logs_dir, self.checkpoints_dir):
@@ -89,8 +99,12 @@ class PipelineContext:
         self.current_stage: str | None = None  # 供异常处理读取（不依赖 DB）
         # 恢复判定输入：任务级（输入清单 + 配置）
         self.job_inputs_sha = compute_sha_of(
-            {"input_manifest": input_manifest, "config": config}
+            {"images_sha": input_manifest_sha(input_manifest), "config": config}
         )
+        self.engine_identity: dict = {"mode": job.pipeline_mode, "version": job.engine_version}
+        self.dense_max_image_size = get_settings().colmap_dense_max_image_size
+        self.stage_fingerprints: dict[str, str] = {}
+        self.completed_stages: set[str] = set()
 
     def log_file(self, stage: str) -> Path:
         return self.logs_dir / f"stage-{stage.lower()}.log"
@@ -107,10 +121,12 @@ class PipelineContext:
     def set_stage_running(self, stage: str) -> None:
         self.current_stage = stage
         with self._db() as db:
-            job = db.get(ReconstructionJob, self.job_id)
-            job.status = "RUNNING"
-            job.current_stage = stage
-            db.add(JobStageEvent(job_id=job.id, stage=stage, status="running", started_at=_now()))
+            changed = db.query(ReconstructionJob).filter_by(
+                id=self.job_id, status="RUNNING", cancel_requested=False,
+            ).update({"current_stage": stage})
+            if not changed:
+                raise StageCancelled(stage)
+            db.add(JobStageEvent(job_id=self.job_id, stage=stage, status="running", started_at=_now()))
             db.commit()
 
     def set_stage_result(self, stage: str, status: str, message: str | None = None) -> None:
@@ -140,18 +156,9 @@ class PipelineContext:
             # 进度 = 已完成（含跳过）阶段权重之和
             if status in ("completed", "skipped"):
                 weights = dict(PIPELINE_STAGES)
-                done = self._completed_stages(db) | {stage}
-                job.progress = float(sum(weights[s] for s in done if s in weights))
+                self.completed_stages.add(stage)
+                job.progress = float(sum(weights.get(s, 0) for s in self.completed_stages))
             db.commit()
-
-    def _completed_stages(self, db: Session) -> set[str]:
-        rows = db.execute(
-            select(JobStageEvent.stage).where(
-                JobStageEvent.job_id == self.job_id,
-                JobStageEvent.status.in_(["completed", "skipped"]),
-            )
-        ).all()
-        return {r[0] for r in rows}
 
     def check_cancel(self, stage: str) -> None:
         if self.cancel_check():
@@ -166,20 +173,36 @@ class PipelineContext:
             "enable_mesh": bool(self.config.get("enable_mesh", True)),
             "mode": self.config.get("mode", "colmap"),
             "stage": stage,
-            **({"poisson_depth": self.params["poisson_depth"]} if stage == "MESHING" else {}),
+            "engine": self.engine_identity,
+            **({"max_image_size": self.dense_max_image_size}
+               if stage in ("DENSE_RECONSTRUCTION", "STEREO_FUSION") else {}),
+            **({"poisson_depth": self.params["poisson_depth"], "poisson_threads": POISSON_THREADS}
+               if stage == "MESHING" else {}),
             **({"max_features": self.params["max_features"]} if stage == "FEATURE_EXTRACTION" else {}),
         }
 
-    def try_resume_stage(self, stage: str, stage_dir: Path, required_hint: list[str]) -> bool:
-        """检查点校验；有效则记录 skipped 事件并返回 True。"""
-        params = self.stage_params(stage)
-        inputs = {"job_inputs_sha": self.job_inputs_sha}
-        if stage_checkpoint_valid(stage_dir, stage, params, inputs):
-            self.set_stage_result(stage, "skipped", message="检查点有效，跳过（断点恢复）")
-            self.job_log(f"[{stage}] 检查点有效，跳过")
-            return True
-        # 兼容：required_hint 仅用于日志提示
-        return False
+    def stage_inputs(self, stage: str, upstream=()) -> dict:
+        return {"job_inputs_sha": self.job_inputs_sha,
+                "upstream": {name: self.stage_fingerprints[name] for name in upstream}}
+
+    def write_stage_manifest(self, stage: str, stage_dir: Path, files, upstream=()) -> dict:
+        self.check_cancel(stage)
+        manifest = write_manifest(stage_dir, stage, self.stage_params(stage), self.stage_inputs(stage, upstream), files)
+        self.stage_fingerprints[stage] = checkpoint_fingerprint(manifest)
+        return manifest
+
+    def try_resume_stage(self, stage: str, stage_dir: Path, required_hint, upstream=()) -> bool:
+        self.check_cancel(stage)
+        manifest = checked_manifest(stage_dir, stage, self.stage_params(stage),
+                                    self.stage_inputs(stage, upstream), required_hint)
+        if manifest is None:
+            (stage_dir / "manifest.json").unlink(missing_ok=True)
+            self.stage_fingerprints.pop(stage, None)
+            return False
+        self.stage_fingerprints[stage] = checkpoint_fingerprint(manifest)
+        self.set_stage_result(stage, "skipped", message="检查点有效，跳过（断点恢复）")
+        self.job_log(f"[{stage}] 检查点有效，跳过")
+        return True
 
 
 def _now():
@@ -197,6 +220,9 @@ class ColmapPipeline:
     def __init__(self, ctx: PipelineContext, adapter):
         self.ctx = ctx
         self.adapter = adapter
+        ctx.engine_identity = getattr(adapter, "engine_identity", {
+            "mode": "colmap", "version": adapter.version, "use_gpu": adapter.use_gpu,
+        })
         self.has_cuda = adapter.use_gpu
         self.enable_dense = bool(ctx.config.get("enable_dense", True)) and self.has_cuda
         self.enable_mesh = bool(ctx.config.get("enable_mesh", True))
@@ -212,6 +238,9 @@ class ColmapPipeline:
         self._stage_image_validation()
         self._stage_feature_extraction(work)
         model_dir = self._stage_sparse(work)
+        from app.reconstruction.orientation import estimate_display_up
+
+        result["display_up"] = estimate_display_up(model_dir / "images.bin")
         dense_dir = work / "dense"
         fused_ply: Path | None = None
         if self.enable_dense:
@@ -242,7 +271,8 @@ class ColmapPipeline:
         else:
             ctx.set_stage_result("MESHING", "skipped", "未启用网格生成或无稠密点云输入")
 
-        self._stage_export(model_dir, fused_ply, mesh_ply, result)
+        photo_glb = self._stage_texturing(dense_dir, mesh_ply, result)
+        self._stage_export(model_dir, fused_ply, mesh_ply, result, photo_glb=photo_glb)
         return result
 
     # ---- 各阶段 ----
@@ -252,48 +282,43 @@ class ColmapPipeline:
         stage = "IMAGE_VALIDATION"
         stage_dir = ctx.checkpoints_dir / stage
         stage_dir.mkdir(parents=True, exist_ok=True)
-        if ctx.try_resume_stage(stage, stage_dir, ["validated.json"]):
-            return
-        ctx.check_cancel(stage)
-        t0 = time.time()
-        ctx.set_stage_running(stage)
-        ctx.job_log(f"[{stage}] 校验 {ctx.input_manifest.get('image_count', 0)} 张输入图片")
-        log = ctx.log_file(stage)
-
-        # 创建 COLMAP 用扁平图片目录（符号链接，保留可读文件名）
         images_dir = ctx.work_dir / "images"
-        images_dir.mkdir(parents=True, exist_ok=True)
-        problems: list[str] = []
-        used_names: set[str] = set()
-        valid_entries = []
-        with open(log, "a", encoding="utf-8") as lf:
-            for i, entry in enumerate(ctx.input_manifest.get("images", [])):
-                src = Path(entry["stored_path"])
-                if not src.is_file():
-                    problems.append(f"{entry['filename']}: 文件丢失")
-                    continue
-                safe = sanitize_filename(Path(entry["filename"]).stem)
-                name = f"img_{i:04d}_{safe}{Path(entry['filename']).suffix.lower()}"
-                while name in used_names:
-                    name = f"img_{i:04d}_{safe}_dup{i}{Path(entry['filename']).suffix.lower()}"
-                used_names.add(name)
-                link = images_dir / name
-                if not link.exists():
-                    # 注意：必须复制而非符号链接。COLMAP 3.10+ 会把符号链接解析为
-                    # 规范路径并用作图片名，导致后续阶段（undistorter 等）沿绝对
-                    # 路径创建目录而崩溃。
-                    shutil.copy2(src, link)
-                valid_entries.append({"name": name, "image_id": entry["image_id"], "checksum": entry["checksum"]})
-                lf.write(f"OK {name} <- {entry['filename']}\n")
+        entries = ctx.input_manifest.get("images", [])
+        names = [
+            f"img_{i:04d}_{sanitize_filename(Path(entry['filename']).stem)}{Path(entry['filename']).suffix.lower()}"
+            for i, entry in enumerate(entries)
+        ]
+        for entry in entries:
+            ctx.check_cancel(stage)
+            src = Path(entry["stored_path"])
+            if not src.is_file() or sha256_file(src) != entry["checksum"]:
+                raise PipelineError(stage, "INPUT_CHANGED", f"输入文件丢失或已改变: {entry['filename']}")
+        if (images_dir.is_dir() and set(p.name for p in images_dir.iterdir()) == set(names)
+                and ctx.try_resume_stage(stage, stage_dir, ["validated.json", *(images_dir / n for n in names)])):
+            return
+        (stage_dir / "manifest.json").unlink(missing_ok=True)
+        ctx.set_stage_running(stage)
+        t0 = time.time()
+        if len(entries) < 3:
+            raise PipelineError(stage, "TOO_FEW_IMAGES", f"有效图片不足 3 张（{len(entries)}），无法重建")
 
-        if len(valid_entries) < 3:
-            raise PipelineError(stage, "TOO_FEW_IMAGES", f"有效图片不足 3 张（{len(valid_entries)}），无法重建")
-        (stage_dir / "validated.json").write_text(
-            json.dumps({"images": valid_entries, "problems": problems}, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, ["validated.json"])
-        msg = f"校验完成：{len(valid_entries)} 张有效" + (f"；{len(problems)} 张异常" if problems else "")
+        # COLMAP resolves symlinks, so build a clean flat directory of copies.
+        _clear_dir(images_dir)
+        images_dir.mkdir(parents=True)
+        valid_entries = []
+        with open(ctx.log_file(stage), "a", encoding="utf-8") as log:
+            for entry, name in zip(entries, names):
+                ctx.check_cancel(stage)
+                copied = images_dir / name
+                shutil.copy2(entry["stored_path"], copied)
+                if sha256_file(copied) != entry["checksum"]:
+                    raise PipelineError(stage, "INPUT_CHANGED", f"复制时输入文件已改变: {entry['filename']}")
+                valid_entries.append({"name": name, "image_id": entry["image_id"], "checksum": entry["checksum"]})
+                log.write(f"OK {name} <- {entry['filename']}\n")
+
+        atomic_write_json(stage_dir / "validated.json", {"images": valid_entries, "problems": []})
+        ctx.write_stage_manifest(stage, stage_dir, ["validated.json", *(images_dir / n for n in names)])
+        msg = f"校验完成：{len(valid_entries)} 张有效"
         ctx.set_stage_result(stage, "completed", msg)
         ctx.job_log(f"[{stage}] {msg} 耗时 {time.time()-t0:.1f}s")
 
@@ -302,13 +327,16 @@ class ColmapPipeline:
         stage = "FEATURE_EXTRACTION"
         stage_dir = ctx.checkpoints_dir / stage
         stage_dir.mkdir(parents=True, exist_ok=True)
-        if ctx.try_resume_stage(stage, stage_dir, ["database.db"]):
+        db_path = stage_dir / "database.db"
+        upstream = ("IMAGE_VALIDATION",)
+        if ctx.try_resume_stage(stage, stage_dir, [db_path], upstream):
             return
-        ctx.check_cancel(stage)
         ctx.set_stage_running(stage)
-        db_path = work / "database.db"
-        self.adapter.feature_extraction(db_path, ctx.work_dir / "images", ctx.log_file(stage), self._cc)
-        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, [str(db_path)])
+        _clear_database(db_path)
+        self.adapter.feature_extraction(db_path, ctx.work_dir / "images", ctx.log_file(stage), self._cc,
+                                        max_features=ctx.params["max_features"])
+        _checkpoint_database(db_path)
+        ctx.write_stage_manifest(stage, stage_dir, [db_path], upstream)
         ctx.set_stage_result(stage, "completed", "SIFT 特征提取完成")
 
     def _stage_feature_matching(self, work: Path) -> str:
@@ -316,16 +344,19 @@ class ColmapPipeline:
         stage = "FEATURE_MATCHING"
         stage_dir = ctx.checkpoints_dir / stage
         stage_dir.mkdir(parents=True, exist_ok=True)
-        if ctx.try_resume_stage(stage, stage_dir, ["database.db"]):
-            return ctx.config.get("matcher", "auto")
-        ctx.check_cancel(stage)
-        ctx.set_stage_running(stage)
         matcher = ctx.config.get("matcher", "auto")
         if matcher == "auto":
-            matcher = self.ctx.params["matcher_default"]
-        db_path = work / "database.db"
+            matcher = ctx.params["matcher_default"]
+        upstream = ("FEATURE_EXTRACTION",)
+        db_path = stage_dir / "database.db"
+        if ctx.try_resume_stage(stage, stage_dir, [db_path], upstream):
+            return matcher
+        ctx.set_stage_running(stage)
+        _clear_database(db_path)
+        shutil.copy2(ctx.checkpoints_dir / "FEATURE_EXTRACTION" / "database.db", db_path)
         self.adapter.feature_matching(db_path, matcher, ctx.log_file(stage), self._cc)
-        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, [str(db_path)])
+        _checkpoint_database(db_path)
+        ctx.write_stage_manifest(stage, stage_dir, [db_path], upstream)
         ctx.set_stage_result(stage, "completed", f"特征匹配完成（策略 {matcher}）")
         return matcher
 
@@ -335,51 +366,55 @@ class ColmapPipeline:
         stage = "SPARSE_RECONSTRUCTION"
         stage_dir = ctx.checkpoints_dir / stage
         stage_dir.mkdir(parents=True, exist_ok=True)
-        if ctx.try_resume_stage(stage, stage_dir, ["sparse/0/cameras.bin"]):
-            return self._find_sparse_model(work)
-        ctx.check_cancel(stage)
-        ctx.set_stage_running(stage)
-        model_dir = self.adapter.sparse_mapping(
-            work / "database.db", ctx.work_dir / "images", work / "sparse", ctx.log_file(stage), self._cc
-        )
-        # 将稀疏模型文件复制到检查点目录（体积小），使 manifest 校验自包含
+        upstream = ("FEATURE_MATCHING",)
         ckpt_model_dir = stage_dir / "model"
-        ckpt_model_dir.mkdir(parents=True, exist_ok=True)
-        rel_files = []
+        required = [ckpt_model_dir / name for name in SPARSE_MODEL_FILES]
+        if ctx.try_resume_stage(stage, stage_dir, required, upstream):
+            return ckpt_model_dir
+        ctx.set_stage_running(stage)
+        _clear_dir(work / "sparse")
+        _clear_dir(ckpt_model_dir)
+        # Mapper receives a disposable DB, so even an engine that writes to it
+        # cannot invalidate the matching checkpoint.
+        scratch_db = work / "mapper.db"
+        _clear_database(scratch_db)
+        shutil.copy2(ctx.checkpoints_dir / "FEATURE_MATCHING" / "database.db", scratch_db)
+        try:
+            model_dir = self.adapter.sparse_mapping(
+                scratch_db, ctx.work_dir / "images", work / "sparse", ctx.log_file(stage), self._cc
+            )
+        finally:
+            _clear_database(scratch_db)
+        if not all((model_dir / name).is_file() for name in SPARSE_MODEL_FILES):
+            raise PipelineError(stage, "NO_SPARSE_MODEL", "稀疏模型文件不完整")
+        ckpt_model_dir.mkdir()
+        files = []
         for p in model_dir.glob("*.bin"):
-            shutil.copy2(p, ckpt_model_dir / p.name)
-            rel_files.append(f"model/{p.name}")
-        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, rel_files)
+            dest = ckpt_model_dir / p.name
+            shutil.copy2(p, dest)
+            files.append(dest)
+        ctx.write_stage_manifest(stage, stage_dir, files, upstream)
         ctx.set_stage_result(stage, "completed", f"稀疏重建完成：{model_dir.name}")
-        ctx.job_log(f"[{stage}] 稀疏模型目录: {model_dir}")
-        return model_dir
-
-    def _find_sparse_model(self, work: Path) -> Path:
-        sparse_root = work / "sparse"
-        if (sparse_root / "0" / "cameras.bin").is_file():
-            return sparse_root / "0"
-        candidates = sorted(p for p in sparse_root.iterdir() if (p / "cameras.bin").is_file()) if sparse_root.is_dir() else []
-        if not candidates:
-            raise PipelineError("SPARSE_RECONSTRUCTION", "NO_SPARSE_MODEL", "未找到稀疏模型输出")
-        return candidates[0]
+        ctx.job_log(f"[{stage}] 稀疏模型目录: {ckpt_model_dir}")
+        return ckpt_model_dir
 
     def _stage_undistort(self, work: Path, model_dir: Path, dense_dir: Path) -> None:
         ctx = self.ctx
         stage = "IMAGE_UNDISTORTION"
         stage_dir = ctx.checkpoints_dir / stage
         stage_dir.mkdir(parents=True, exist_ok=True)
-        if ctx.try_resume_stage(stage, stage_dir, ["dense/cameras.bin"]):
+        upstream = ("SPARSE_RECONSTRUCTION",)
+        required = _undistortion_files(dense_dir)
+        if required and ctx.try_resume_stage(stage, stage_dir, required, upstream):
             return
-        ctx.check_cancel(stage)
+        (stage_dir / "manifest.json").unlink(missing_ok=True)
         ctx.set_stage_running(stage)
+        _clear_dir(dense_dir)
         self.adapter.undistort(ctx.work_dir / "images", model_dir, dense_dir, ctx.log_file(stage), self._cc)
-        # COLMAP 3.10+ 输出布局为 dense/sparse/*.bin；3.7 为扁平 dense/*.bin
-        marker = dense_dir / "sparse" / "cameras.bin"
-        if not marker.is_file():
-            marker = dense_dir / "cameras.bin"
-        if not marker.is_file():
-            raise PipelineError(stage, "NO_OUTPUT", "去畸变未生成相机模型")
-        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, [str(marker)])
+        required = _undistortion_files(dense_dir)
+        if not required:
+            raise PipelineError(stage, "NO_OUTPUT", "去畸变工作区不完整")
+        ctx.write_stage_manifest(stage, stage_dir, required, upstream)
         ctx.set_stage_result(stage, "completed", "图像去畸变完成")
 
     def _stage_dense(self, dense_dir: Path) -> None:
@@ -387,13 +422,22 @@ class ColmapPipeline:
         stage = "DENSE_RECONSTRUCTION"
         stage_dir = ctx.checkpoints_dir / stage
         stage_dir.mkdir(parents=True, exist_ok=True)
-        if ctx.try_resume_stage(stage, stage_dir, ["stereo/depth_maps.bin"]):
+        upstream = ("IMAGE_UNDISTORTION",)
+        required = _stereo_files(dense_dir)
+        if required and ctx.try_resume_stage(stage, stage_dir, required, upstream):
             return
-        ctx.check_cancel(stage)
+        (stage_dir / "manifest.json").unlink(missing_ok=True)
         ctx.set_stage_running(stage)
-        self.adapter.dense_stereo(dense_dir, ctx.log_file(stage), self._cc)
-        files = [str(dense_dir / "stereo" / "depth_maps.bin"), str(dense_dir / "stereo" / "normal_maps.bin")]
-        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, files)
+        for name in ("depth_maps", "normal_maps", "consistency_graphs"):
+            folder = dense_dir / "stereo" / name
+            _clear_dir(folder)
+            folder.mkdir(parents=True)
+        self.adapter.dense_stereo(dense_dir, ctx.log_file(stage), self._cc,
+                                  max_image_size=ctx.dense_max_image_size)
+        files = _stereo_files(dense_dir)
+        if not files:
+            raise PipelineError(stage, "NO_OUTPUT", "COLMAP 未生成完整的几何深度图和法线图")
+        ctx.write_stage_manifest(stage, stage_dir, files, upstream)
         ctx.set_stage_result(stage, "completed", "稠密深度图完成（GPU）")
 
     def _stage_fusion(self, dense_dir: Path) -> Path:
@@ -401,13 +445,16 @@ class ColmapPipeline:
         stage = "STEREO_FUSION"
         stage_dir = ctx.checkpoints_dir / stage
         stage_dir.mkdir(parents=True, exist_ok=True)
-        if ctx.try_resume_stage(stage, stage_dir, ["fused.ply"]):
+        upstream = ("DENSE_RECONSTRUCTION",)
+        if ctx.try_resume_stage(stage, stage_dir, ["fused.ply"], upstream):
             return stage_dir / "fused.ply"
-        ctx.check_cancel(stage)
         ctx.set_stage_running(stage)
         out_ply = stage_dir / "fused.ply"
-        self.adapter.stereo_fusion(dense_dir, out_ply, ctx.log_file(stage), self._cc)
-        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, ["fused.ply"])
+        out_ply.unlink(missing_ok=True)
+        self.adapter.stereo_fusion(dense_dir, out_ply, ctx.log_file(stage), self._cc,
+                                   max_image_size=ctx.dense_max_image_size)
+        _require_ply(stage, out_ply)
+        ctx.write_stage_manifest(stage, stage_dir, [out_ply], upstream)
         ctx.set_stage_result(stage, "completed", f"点云融合完成（{human_size(out_ply.stat().st_size)}）")
         return out_ply
 
@@ -416,11 +463,12 @@ class ColmapPipeline:
         stage = "MESHING"
         stage_dir = ctx.checkpoints_dir / stage
         stage_dir.mkdir(parents=True, exist_ok=True)
-        if ctx.try_resume_stage(stage, stage_dir, ["meshed-poisson.ply"]):
+        upstream = ("STEREO_FUSION",)
+        if ctx.try_resume_stage(stage, stage_dir, ["meshed-poisson.ply"], upstream):
             return stage_dir / "meshed-poisson.ply"
-        ctx.check_cancel(stage)
         ctx.set_stage_running(stage)
         out_ply = stage_dir / "meshed-poisson.ply"
+        out_ply.unlink(missing_ok=True)
         # 离群点过滤：远距离离群点会使 Poisson 八叉树覆盖巨大空域，耗时呈数量级增长
         mesh_input = fused_ply
         filtered = stage_dir / "fused-filtered.ply"
@@ -431,26 +479,120 @@ class ColmapPipeline:
                 ctx.job_log(f"[{stage}] 离群点过滤：移除 {removed} 点")
         except Exception as e:
             ctx.job_log(f"[{stage}] 离群点过滤失败，使用原始点云: {e}")
-        self.adapter.poisson_meshing(
-            mesh_input, out_ply, ctx.log_file(stage), self._cc, quality=self.ctx.params["poisson_depth"]
-        )
-        write_manifest(
-            stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha},
-            ["meshed-poisson.ply"] + ([str(filtered)] if mesh_input is filtered else []),
-        )
+        from app.reconstruction.adapter import ColmapStageError
+
+        try:
+            self.adapter.poisson_meshing(
+                mesh_input, out_ply, ctx.log_file(stage), self._cc,
+                quality=ctx.params["poisson_depth"], num_threads=POISSON_THREADS,
+            )
+        except ColmapStageError as exc:
+            raise PipelineError(stage, exc.code, str(exc)) from exc
+        _require_ply(stage, out_ply, mesh=True)
+        ctx.write_stage_manifest(stage, stage_dir, [out_ply], upstream)
         ctx.set_stage_result(stage, "completed", f"Poisson 网格生成完成（{human_size(out_ply.stat().st_size)}）")
         return out_ply
 
-    def _stage_export(self, model_dir: Path, fused_ply: Path | None, mesh_ply: Path | None, result: dict) -> None:
+    def _stage_texturing(self, dense_dir: Path, mesh_ply: Path | None, result: dict) -> Path | None:
+        from tempfile import TemporaryDirectory
+
+        from app.reconstruction.photo_export import PHOTO_FILENAME, PHOTO_NATIVE, PHOTO_STAGE, photo_mesh_to_glb
+        from app.reconstruction.texturer import TEXTURING_OPTIONS, TEXTURE_SCALES, bake_texture, estimate_upright, resolve_texturer
+
+        ctx = self.ctx
+        stage = "TEXTURING"
+        ctx.check_cancel(stage)
+        stage_dir = ctx.checkpoints_dir / stage
+        configured_bin = get_settings().colmap_texturer_bin
+        if not configured_bin or mesh_ply is None:
+            reason = "未配置 COLMAP_TEXTURER_BIN" if not configured_bin else "无可贴图网格"
+            result["photo_texture"] = {"status": "skipped", "reason": reason}
+            ctx.set_stage_result(stage, "skipped", reason)
+            return None
+
+        upstream = ("IMAGE_UNDISTORTION", "MESHING")
+        stage_dir.mkdir(parents=True, exist_ok=True)
+        glb = stage_dir / PHOTO_FILENAME
+        metadata_path = stage_dir / "photo_texture.json"
+        ctx.set_stage_running(stage)
+        try:
+            executable = resolve_texturer(configured_bin)
+            binary = Path(executable).stat()
+            implementation = {
+                "version": 2, "scales": list(TEXTURE_SCALES), "binary": executable, "size": binary.st_size,
+                "mtime_ns": binary.st_mtime_ns, "options": TEXTURING_OPTIONS,
+            }
+            try:
+                saved = json.loads(metadata_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                saved = {}
+            if isinstance(saved, dict) and saved.get("implementation") == implementation:
+                if ctx.try_resume_stage(stage, stage_dir, [glb.resolve(), metadata_path.resolve()], upstream):
+                    result["photo_texture"] = saved
+                    return glb
+            (stage_dir / "manifest.json").unlink(missing_ok=True)
+            with TemporaryDirectory(prefix="bake-", dir=stage_dir) as temp:
+                scratch = Path(temp)
+                log = ctx.log_file(stage)
+                check_cancel = lambda: ctx.check_cancel(stage)
+                textured = bake_texture(executable, dense_dir, mesh_ply, scratch / "texture", log, check_cancel)
+                try:
+                    up = estimate_upright(executable, dense_dir, scratch, log, result.get("display_up"), check_cancel)
+                except Exception as exc:
+                    if getattr(exc, "code", None) == "CANCELLED":
+                        raise
+                    ctx.job_log(f"[{stage}] 朝向估计不可用: {exc}")
+                    up = None
+                check_cancel()
+                metadata = photo_mesh_to_glb(mesh_ply, textured, scratch / PHOTO_FILENAME, up)
+                check_cancel()
+                (scratch / PHOTO_FILENAME).replace(glb)
+            metadata.update(status="completed", path=PHOTO_FILENAME, implementation=implementation,
+                            origin=PHOTO_STAGE if up is not None else PHOTO_NATIVE)
+            atomic_write_json(metadata_path, metadata)
+            ctx.write_stage_manifest(stage, stage_dir, [glb.resolve(), metadata_path.resolve()], upstream)
+        except Exception as exc:
+            if getattr(exc, "code", None) == "CANCELLED":
+                raise
+            ctx.check_cancel(stage)
+            message = f"照片贴图不可用，保留原有模型导出: {exc}"
+            result["warnings"].append(message)
+            result["photo_texture"] = {"status": "fallback", "reason": str(exc)}
+            ctx.job_log(f"[{stage}] {message}")
+            ctx.set_stage_result(stage, "skipped", message)
+            return None
+        result["photo_texture"] = metadata
+        ctx.set_stage_result(stage, "completed", "照片贴图完成" if up is not None else "照片贴图完成，保留原朝向供手动调整")
+        return glb
+
+    def _stage_export(
+        self, model_dir: Path, fused_ply: Path | None, mesh_ply: Path | None, result: dict,
+        *, photo_glb: Path | None = None,
+    ) -> None:
         ctx = self.ctx
         stage = "EXPORTING"
         stage_dir = ctx.checkpoints_dir / stage
         stage_dir.mkdir(parents=True, exist_ok=True)
-        if ctx.try_resume_stage(stage, stage_dir, ["exported.json"]):
+        upstream = tuple(name for name, present in (
+            ("SPARSE_RECONSTRUCTION", True), ("STEREO_FUSION", fused_ply is not None),
+            ("MESHING", mesh_ply is not None), ("TEXTURING", photo_glb is not None),
+        ) if present)
+        required = ["exported.json"]
+        if photo_glb is not None:
+            required.append(str((ctx.out_dir / photo_glb.name).resolve()))
+        if ctx.try_resume_stage(stage, stage_dir, required, upstream):
+            saved = json.loads((stage_dir / "exported.json").read_text(encoding="utf-8"))
+            result["warnings"].extend(w for w in saved.get("warnings", []) if w not in result["warnings"])
             return
         ctx.check_cancel(stage)
         ctx.set_stage_running(stage)
         out = ctx.out_dir
+        from app.reconstruction.photo_export import PHOTO_FILENAME
+
+        # No stale photo file should survive a fallback or a changed checkpoint.
+        (out / PHOTO_FILENAME).unlink(missing_ok=True)
+        exported_path = stage_dir / "exported.json"
+        exported_path.unlink(missing_ok=True)
         exported: list[dict] = []
 
         # 1) 稀疏点云（小，供点云展示）
@@ -488,23 +630,51 @@ class ColmapPipeline:
             shutil.copy2(mesh_for_glb, out / "mesh.ply")
             exported.append({"type": "mesh", "format": "ply", "path": "mesh.ply", "origin": "MESHING"})
             glb = out / "model.glb"
-            export_tools.mesh_to_glb(out / "mesh.ply", glb)
-            exported.append({"type": "web", "format": "glb", "path": glb.name, "origin": "EXPORTING"})
+            glb.unlink(missing_ok=True)
+            try:
+                export_tools.mesh_to_glb(out / "mesh.ply", glb)
+                exported.append({"type": "web", "format": "glb", "path": glb.name, "origin": "EXPORTING"})
+            except Exception as exc:
+                glb.unlink(missing_ok=True)
+                result["warnings"].append(f"基础 GLB 导出失败，保留 PLY: {exc}")
+
+        if photo_glb is not None:
+            from tempfile import NamedTemporaryFile
+
+            tmp_path = None
+            try:
+                with NamedTemporaryFile(prefix="photo-", suffix=".tmp", dir=out, delete=False) as tmp:
+                    tmp_path = Path(tmp.name)
+                shutil.copy2(photo_glb, tmp_path)
+                ctx.check_cancel(stage)
+                tmp_path.replace(out / PHOTO_FILENAME)
+            except OSError as exc:
+                message = f"照片 GLB 发布失败，保留原有模型导出: {exc}"
+                result["warnings"].append(message)
+                result["photo_texture"] = {"status": "fallback", "reason": str(exc)}
+                ctx.job_log(f"[{stage}] {message}")
+            else:
+                exported.append({"type": "web", "format": "glb", "path": PHOTO_FILENAME,
+                                 "origin": result["photo_texture"]["origin"]})
+            finally:
+                if tmp_path is not None:
+                    tmp_path.unlink(missing_ok=True)
 
         # 4) 预览图（优先稠密点云）
-        preview_src = (out / "dense_pointcloud.ply") if (out / "dense_pointcloud.ply").is_file() else (out / "sparse_pointcloud.ply")
-        if preview_src.is_file():
-            if export_tools.make_preview_png(preview_src, out / "preview.png"):
-                exported.append({"type": "preview", "format": "png", "path": "preview.png", "origin": "EXPORTING"})
+        pointcloud = next((item for item in reversed(exported) if item["type"] in
+                           ("dense_pointcloud", "sparse_pointcloud") and item["format"] == "ply"), None)
+        if pointcloud and export_tools.make_preview_png(out / pointcloud["path"], out / "preview.png"):
+            exported.append({"type": "preview", "format": "png", "path": "preview.png", "origin": "EXPORTING"})
 
-        if not exported:
+        if not exported or all(item["type"] == "preview" for item in exported):
             raise PipelineError(stage, "NO_OUTPUT", "没有任何可导出的模型产物")
 
-        (stage_dir / "exported.json").write_text(
-            json.dumps({"exported": exported, "warnings": result["warnings"]}, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, ["exported.json"])
+        atomic_write_json(exported_path, {"exported": exported, "warnings": result["warnings"]})
+        # A transient photo publication failure should be retried on resume.
+        if photo_glb is None or result["photo_texture"]["status"] == "completed":
+            ctx.write_stage_manifest(stage, stage_dir,
+                                     [exported_path.resolve(), *((out / item["path"]).resolve() for item in exported)],
+                                     upstream)
         ctx.set_stage_result(stage, "completed", f"导出 {len(exported)} 个产物")
         ctx.job_log(f"[{stage}] 导出清单: {[e['path'] for e in exported]}")
 
@@ -566,18 +736,85 @@ def _write_colored_ply(out_ply: Path, pts: "np.ndarray", cols: "np.ndarray") -> 
 import numpy as np  # noqa: E402  供 _write_colored_ply 使用
 
 
+def _clear_dir(path: Path) -> None:
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.is_dir():
+        shutil.rmtree(path)
+
+
+def _clear_database(path: Path) -> None:
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        path.with_name(path.name + suffix).unlink(missing_ok=True)
+
+
+def _checkpoint_database(path: Path) -> None:
+    # The immutable DB must contain committed data, not rely on a WAL sidecar.
+    from contextlib import closing
+
+    with closing(sqlite3.connect(path.as_uri() + "?mode=rw", uri=True)) as db:
+        busy, *_ = db.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+        if busy or db.execute("PRAGMA journal_mode=DELETE").fetchone()[0] != "delete":
+            raise RuntimeError(f"Could not finalize COLMAP database: {path}")
+
+
+def _fusion_names(dense_dir: Path) -> list[str]:
+    config = dense_dir / "stereo" / "fusion.cfg"
+    if not config.is_file():
+        return []
+    names = [line.strip() for line in config.read_text(encoding="utf-8").splitlines()
+             if line.strip() and not line.lstrip().startswith("#")]
+    if any(Path(name).is_absolute() or ".." in Path(name).parts for name in names):
+        return []
+    return names
+
+
+def _undistortion_files(dense_dir: Path) -> list[Path]:
+    sparse_dir = dense_dir / "sparse"
+    if not sparse_dir.is_dir():
+        sparse_dir = dense_dir
+    names = _fusion_names(dense_dir)
+    if not names:
+        return []
+    model = [sparse_dir / name for name in SPARSE_MODEL_FILES]
+    configs = [dense_dir / "stereo" / name for name in ("patch-match.cfg", "fusion.cfg")]
+    images = [dense_dir / "images" / name for name in names]
+    files = [*model, *sparse_dir.glob("*.bin"), *configs, *images]
+    return files if all(p.is_file() and p.stat().st_size for p in files) else []
+
+
+def _stereo_files(dense_dir: Path) -> list[Path]:
+    stereo = dense_dir / "stereo"
+    names = _fusion_names(dense_dir)
+    if not names:
+        return []
+    required = [stereo / subdir / f"{name}.geometric.bin"
+                for subdir in ("depth_maps", "normal_maps") for name in names]
+    if not all(p.is_file() and p.stat().st_size for p in required):
+        return []
+    optional = [p for folder in ("depth_maps", "normal_maps", "consistency_graphs")
+                for p in (stereo / folder).rglob("*.bin") if p.is_file() and p.stat().st_size]
+    return [*required, *optional]
+
+
+def _require_ply(stage: str, path: Path, mesh: bool = False) -> None:
+    stats = export_tools.ply_stats(path) if path.is_file() else {}
+    if not stats.get("vertex_count") or (mesh and not stats.get("face_count")):
+        raise PipelineError(stage, "NO_OUTPUT", "未生成有效 PLY 产物")
+
+
 def _filter_cloud_outliers(ply_path: Path, out_path: Path, pct: float = 0.5) -> int:
     """按坐标百分位裁剪远距离离群点（针对 stereo_fusion 的二进制 PLY）。
 
     逐轴取 [pct, 100-pct] 百分位并外扩 5% 域作为保留盒；返回被移除的点数。
     解析失败时抛异常，由调用方回退为原始点云。
     """
-    import struct as _struct
-
     with open(ply_path, "rb") as f:
         header_lines = []
         while True:
             line = f.readline()
+            if not line:
+                raise ValueError("Incomplete PLY header")
             header_lines.append(line.decode("ascii", errors="replace").strip())
             if line.strip() == b"end_header":
                 break

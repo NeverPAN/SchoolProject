@@ -7,79 +7,101 @@ from pathlib import Path
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.errors import NotFoundError
+from app.core.errors import AppError, NotFoundError
 from app.models.entities import Model, ModelVersion, ReconstructionJob
-from app.reconstruction import export as export_tools
 from app.services.image_service import project_output_dir
 
 
-def register_job_models(db: Session, job: ReconstructionJob) -> list[Model]:
-    """任务导出完成后登记模型（幂等：重复调用会先清理该任务旧登记及其版本）。"""
-    from app.models.entities import Model as M
-    from app.models.entities import ModelVersion
-
-    old = list(db.scalars(select(M).where(M.job_id == job.id)))
-    if old:
-        old_ids = [m.id for m in old]
-        for v in db.scalars(select(ModelVersion).where(ModelVersion.model_id.in_(old_ids))):
-            db.delete(v)
-        for m in old:
-            db.delete(m)
-        db.flush()
-
-    out_dir = project_output_dir(job.project, job.id)
-    exported_json = (
-        Path(db_path_of(job)) / "checkpoints" / "EXPORTING" / "exported.json"
-    )
-    items: list[dict] = []
-    if exported_json.is_file():
-        items = json.loads(exported_json.read_text(encoding="utf-8")).get("exported", [])
-    else:
-        # 兜底：扫描输出目录
-        for f in ("sparse_pointcloud.ply", "dense_pointcloud.ply", "mesh.ply", "model.glb"):
-            if (out_dir / f).is_file():
-                t = {"sparse_pointcloud.ply": "sparse_pointcloud", "dense_pointcloud.ply": "dense_pointcloud",
-                     "mesh.ply": "mesh", "model.glb": "web"}[f]
-                items.append({"type": t, "format": Path(f).suffix.lstrip("."), "path": f, "origin": "EXPORTING"})
-
-    registered: list[Model] = []
-    for item in items:
-        f = out_dir / item["path"]
-        if not f.is_file() or f.stat().st_size == 0:
-            continue
-        stats = _safe_stats(f, item["format"])
-        m = Model(
-            project_id=job.project_id,
-            job_id=job.id,
-            model_type=item["type"],
-            format=item["format"],
-            file_path=str(f),
-            file_size=f.stat().st_size,
-            stage_origin=item.get("origin"),
-            **stats,
-        )
-        db.add(m)
-        registered.append(m)
-    db.commit()
-    return registered
+class InvalidExportError(AppError):
+    code = "INVALID_EXPORT"
+    status_code = 500
 
 
-def _safe_stats(f: Path, fmt: str) -> dict:
+_EXPORT_FORMATS = {
+    "sparse_pointcloud": {"ply", "glb"}, "dense_pointcloud": {"ply", "glb"},
+    "mesh": {"ply", "glb"}, "web": {"glb"}, "preview": {"png"},
+}
+
+
+def prepare_job_models(job: ReconstructionJob) -> list[dict]:
+    """Validate the explicit export list. Never publish files discovered by scanning."""
+    out_dir = project_output_dir(job.project, job.id).resolve()
+    exported_json = Path(db_path_of(job)) / "checkpoints" / "EXPORTING" / "exported.json"
+    records: list[dict] = []
+    seen = set()
     try:
-        if fmt == "ply":
-            return export_tools.ply_stats(f)
-        if fmt == "glb":
-            import trimesh
+        items = json.loads(exported_json.read_text(encoding="utf-8"))["exported"]
+        if not isinstance(items, list):
+            raise ValueError("exported must be a list")
+        for item in items:
+            name, kind, fmt = item["path"], item["type"], item["format"]
+            relative = Path(name)
+            if relative.name != name or relative.suffix.lower() != f".{fmt}" or name in seen:
+                raise ValueError(f"Invalid or duplicate export path: {name}")
+            seen.add(name)
+            path = out_dir / relative
+            if fmt not in _EXPORT_FORMATS.get(kind, ()) or path.is_symlink() or not path.is_file():
+                raise ValueError(f"Missing or invalid export: {name}")
+            size = path.stat().st_size
+            if not size:
+                raise ValueError(f"Empty export: {name}")
+            stats = export_stats(path, fmt)
+            if kind != "preview" and (not stats["vertex_count"] or kind == "mesh" and not stats["face_count"]):
+                raise ValueError(f"Empty geometry: {name}")
+            records.append(dict(model_type=kind, format=fmt, file_path=str(path), file_size=size,
+                                stage_origin=item.get("origin"), **stats))
+        if not any(record["model_type"] != "preview" for record in records):
+            raise ValueError("No usable geometry was exported")
+    except Exception as exc:
+        raise InvalidExportError(f"导出产物无效: {exc}") from exc
+    return records
 
-            scene = trimesh.load(f, force="mesh", process=False)
-            return {
-                "vertex_count": int(len(scene.vertices)),
-                "face_count": int(len(scene.faces)),
-                "point_count": 0,
-            }
-    except Exception:
-        pass
-    return {"vertex_count": 0, "face_count": 0, "point_count": 0}
+
+def register_job_models(db: Session, job: ReconstructionJob, records: list[dict] | None = None) -> list[Model]:
+    """Replace registrations within the caller's publication transaction."""
+    if records is None:
+        records = prepare_job_models(job)
+    old = list(db.scalars(select(Model).where(Model.job_id == job.id)))
+    if old:
+        for version in db.scalars(select(ModelVersion).where(ModelVersion.model_id.in_([m.id for m in old]))):
+            db.delete(version)
+        for model in old:
+            db.delete(model)
+        db.flush()
+    models = [Model(project_id=job.project_id, job_id=job.id, **record) for record in records]
+    db.add_all(models)
+    db.flush()
+    return models
+
+
+def export_stats(path: Path, fmt: str) -> dict:
+    if fmt == "png":
+        from PIL import Image
+
+        with Image.open(path) as image:
+            if image.format != "PNG":
+                raise ValueError(f"Not a PNG: {path.name}")
+            image.verify()
+        return {"vertex_count": 0, "face_count": 0, "point_count": 0}
+
+    import struct
+
+    import trimesh
+
+    with path.open("rb") as stream:
+        if fmt == "glb":
+            magic, version, size = struct.unpack("<4sII", stream.read(12))
+            if magic != b"glTF" or version != 2 or size != path.stat().st_size:
+                raise ValueError(f"Invalid GLB header: {path.name}")
+        elif stream.read(4) not in (b"ply\n", b"ply\r"):
+            raise ValueError(f"Invalid PLY header: {path.name}")
+        stream.seek(0)
+        scene = trimesh.load(stream, file_type=fmt, force="scene", process=False)
+    geometries = scene.geometry.values()
+    vertices = sum(len(mesh.vertices) for mesh in geometries if hasattr(mesh, "vertices"))
+    faces = sum(len(mesh.faces) for mesh in geometries if hasattr(mesh, "faces"))
+    points = sum(len(mesh.vertices) for mesh in geometries if isinstance(mesh, trimesh.points.PointCloud))
+    return {"vertex_count": vertices, "face_count": faces, "point_count": points}
 
 
 def db_path_of(job: ReconstructionJob) -> str:
@@ -95,7 +117,7 @@ def ensure_version(
     description: str = "",
     manifest_path: str | None = None,
 ) -> ModelVersion:
-    """为模型创建版本记录（同一模型首版 initial；后续 append_images/manual）。"""
+    """Add a version within the caller's transaction."""
     existing = db.scalar(
         select(func.max(ModelVersion.version_number)).where(ModelVersion.model_id == model.id)
     )
@@ -109,8 +131,6 @@ def ensure_version(
         manifest_path=manifest_path,
     )
     db.add(ver)
-    db.commit()
-    db.refresh(ver)
     return ver
 
 
@@ -124,6 +144,5 @@ def get_model_checked(db: Session, model_id: int, user_id: int) -> Model:
 
 
 def job_manifest_path(job: ReconstructionJob) -> str:
-    """任务级 manifest（输出清单 + 输入清单 + 配置），存数据目录。"""
     out_dir = project_output_dir(job.project, job.id)
     return str(out_dir / "job_manifest.json")

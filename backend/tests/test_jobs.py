@@ -201,3 +201,89 @@ class TestResume:
         assert finished["status"] == "SUCCEEDED"
         r = client.post(f"/api/v1/jobs/{job['id']}/resume", headers=auth_headers)
         assert r.status_code == 409
+
+
+def test_publication_rolls_back_versions_and_models(client, auth_headers, project, upload_images, monkeypatch):
+    from app.db.session import SessionLocal
+    from app.models.entities import Model, ModelVersion
+    from app.services import model_service
+    from sqlalchemy import func, select
+
+    upload_images(3)
+    ensure_version = model_service.ensure_version
+
+    def fail_after_insert(db, model, **kwargs):
+        ensure_version(db, model, **kwargs)
+        db.flush()
+        raise OSError("injected publication failure")
+
+    monkeypatch.setattr(model_service, "ensure_version", fail_after_insert)
+    job = client.post(f"/api/v1/projects/{project['id']}/jobs", json={}, headers=auth_headers).json()
+    failed = wait_job(client, auth_headers, job["id"])
+    assert failed["status"] == "FAILED"
+    with SessionLocal() as db:
+        assert not db.scalar(select(func.count()).select_from(Model).filter_by(job_id=job["id"]))
+        assert not db.scalar(select(func.count()).select_from(ModelVersion).filter_by(project_id=project["id"]))
+
+
+def test_cancel_at_publication_does_not_register_models(client, auth_headers, project, upload_images, monkeypatch):
+    from app.db.session import SessionLocal
+    from app.models.entities import ReconstructionJob
+    from app.services import job_service, model_service
+
+    upload_images(3)
+    prepare = model_service.prepare_job_models
+
+    def cancel_during_prepare(job):
+        records = prepare(job)
+        with SessionLocal() as db:
+            job_service.request_cancel(db, db.get(ReconstructionJob, job.id))
+        return records
+
+    monkeypatch.setattr(model_service, "prepare_job_models", cancel_during_prepare)
+    job = client.post(f"/api/v1/projects/{project['id']}/jobs", json={}, headers=auth_headers).json()
+    final = wait_job(client, auth_headers, job["id"])
+    assert final["status"] == "CANCELLED"
+    assert client.get(f"/api/v1/projects/{project['id']}/models", headers=auth_headers).json() == []
+
+
+def test_stale_worker_closes_events_but_preserves_live_lock(client, auth_headers, project, upload_images, monkeypatch):
+    from types import SimpleNamespace
+
+    import redis
+    import rq
+    from rq.job import Job
+
+    from app.db.base import utcnow_db
+    from app.db.session import SessionLocal
+    from app.models.entities import JobStageEvent, ReconstructionJob
+    from app.services import image_service, job_service
+
+    upload_images(3)
+    monkeypatch.setattr(job_service, "enqueue_job", lambda job_id: None)
+    job_id = client.post(f"/api/v1/projects/{project['id']}/jobs", json={}, headers=auth_headers).json()["id"]
+    with SessionLocal() as db:
+        job = db.get(ReconstructionJob, job_id)
+        job.status = "RUNNING"
+        job.current_stage = "MESHING"
+        job.started_at = utcnow_db()
+        db.add(JobStageEvent(job_id=job_id, stage="MESHING", status="running", started_at=job.started_at))
+        work_dir = image_service.project_job_dir(job.project, job_id)
+        db.commit()
+
+    registry = SimpleNamespace(get_expired_job_ids=lambda: [], get_job_ids=lambda **_: ["rq-execution-uuid"])
+    monkeypatch.setattr(redis.Redis, "from_url", lambda *_: object())
+    monkeypatch.setattr(rq, "Queue", lambda *_, **__: SimpleNamespace(jobs=[], started_job_registry=registry))
+    monkeypatch.setattr(Job, "fetch_many", lambda ids, **_: [SimpleNamespace(args=(job_id,)) for _ in ids])
+    with job_service.execution_lock(work_dir) as acquired:
+        assert acquired
+        job_service.requeue_stuck_jobs()
+        with SessionLocal() as db:
+            assert db.get(ReconstructionJob, job_id).status == "RUNNING"
+
+    job_service.requeue_stuck_jobs()
+    with SessionLocal() as db:
+        job = db.get(ReconstructionJob, job_id)
+        assert (job.status, job.error_code) == ("FAILED", "WORKER_LOST")
+        assert job.stage_events[0].status == "failed"
+        assert job.stage_events[0].finished_at is not None

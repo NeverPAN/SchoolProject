@@ -1,0 +1,81 @@
+{
+  "job_id": 3,
+  "pipeline_mode": "colmap",
+  "engine_version": "COLMAP 3.13.0 -- Structure-from-Motion and Multi-View Stereo",
+  "engine": {
+    "mode": "colmap",
+    "version": "COLMAP 3.13.0 -- Structure-from-Motion and Multi-View Stereo",
+    "use_gpu": true,
+    "executable": "/data/home/2024090904028/.conda/envs/colmap-gpu/bin/colmap",
+    "executable_sha256": "03cae2ba2a7d1bb2fb19616894b1bf2d67b5bfd6df31b674efdb2be7612459a7"
+  },
+  "config": {
+    "preset": "standard",
+    "matcher": "auto",
+    "enable_dense": true,
+    "enable_mesh": true,
+    "use_gpu": true,
+    "mode": "colmap"
+  },
+  "inputs_sha": "41f8f9a6fec87e07e56aae5c4eabcfd7857d97e95c6dfda5fc9eec20a1850149",
+  "outputs": [
+    "/tmp/phase2-run.EnRwa6/data/users/2/projects/3/outputs/job-3/sparse_pointcloud.ply",
+    "/tmp/phase2-run.EnRwa6/data/users/2/projects/3/outputs/job-3/dense_pointcloud.ply",
+    "/tmp/phase2-run.EnRwa6/data/users/2/projects/3/outputs/job-3/mesh.ply",
+    "/tmp/phase2-run.EnRwa6/data/users/2/projects/3/outputs/job-3/model.glb",
+    "/tmp/phase2-run.EnRwa6/data/users/2/projects/3/outputs/job-3/model_photo.glb"
+  ],
+  "display_up": [
+    -0.057389310337511254,
+    -0.9977301979540061,
+    -0.03522668235364438
+  ],
+  "photo_texture": {
+    "vertex_count": 22756,
+    "face_count": 27041,
+    "textured_faces": 26741,
+    "face_coverage": 0.9889057357346251,
+    "atlas_size": [
+      8192,
+      2847
+    ],
+    "orientation": "native_manual",
+    "color_space": "srgb",
+    "rotation_xyzw": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "rotation_center": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "source_up": null,
+    "status": "completed",
+    "path": "model_photo.glb",
+    "implementation": {
+      "version": 2,
+      "scales": [
+        0.5,
+        0.25,
+        0.125
+      ],
+      "binary": "/tmp/recon-colmap.oUTYXW/env/bin/colmap",
+      "size": 31544400,
+      "mtime_ns": 1794974737868315171,
+      "options": [
+        "--MeshTextureMapping.num_threads",
+        "8",
+        "--MeshTextureMapping.texture_scale_factor",
+        "0.5",
+        "--MeshTextureMapping.atlas_patch_padding",
+        "4"
+      ]
+    },
+    "origin": "PHOTO_TEXTURE"
+  },
+  "mesh_glb_color_space": "linear",
+  "finished_at": "2026-11-18T07:23:42.549862"
+}

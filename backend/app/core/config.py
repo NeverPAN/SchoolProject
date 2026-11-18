@@ -5,6 +5,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 仓库根目录（backend/ 的上一级）
@@ -44,8 +45,17 @@ class Settings(BaseSettings):
     # 重建引擎
     recon_mode: str = "colmap"  # colmap | mock
     colmap_bin: str = "colmap"
+    colmap_texturer_bin: str | None = None  # opt-in, may be a separate CPU build
     recon_use_gpu: str = "auto"  # auto | 1 | 0
     default_recon_preset: str = "standard"
+    colmap_dense_max_image_size: int = -1
+
+    @field_validator("colmap_dense_max_image_size")
+    @classmethod
+    def validate_dense_image_size(cls, size: int) -> int:
+        if size != -1 and size < 320:
+            raise ValueError("COLMAP_DENSE_MAX_IMAGE_SIZE must be -1 or at least 320")
+        return size
 
     # CORS
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import signal
 import subprocess
 import time
@@ -46,6 +47,14 @@ class ColmapAdapter:
         self.colmap_bin = colmap_bin
         self.use_gpu = use_gpu
         self.version = version
+        from app.reconstruction.manifest import sha256_file
+
+        executable = Path(shutil.which(colmap_bin) or colmap_bin).resolve()
+        self.engine_identity = {
+            "mode": "colmap", "version": version, "use_gpu": use_gpu,
+            "executable": str(executable),
+            "executable_sha256": sha256_file(executable) if executable.is_file() else None,
+        }
         # 3.10+ 将 SiftExtraction/SiftMatching 选项改名为 FeatureExtraction/FeatureMatching
         self._new_option_names = _parse_major_minor(version) >= (3, 10)
 
@@ -77,49 +86,54 @@ class ColmapAdapter:
         logger.info("执行: %s", " ".join(cmd))
         Path(log_file).parent.mkdir(parents=True, exist_ok=True)
 
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            errors="replace",
-            start_new_session=True,  # 独立进程组，便于整组终止
-        )
-        start = time.time()
-        killed = False
-        with open(log_file, "a", encoding="utf-8") as log:
-            log.write(f"\n$ {' '.join(cmd)}\n")
+        if cancel_check and cancel_check():
+            raise CancelledError("任务已被用户取消")
+        with open(log_file, "ab") as log:
+            log.write(f"\n$ {' '.join(cmd)}\n".encode("utf-8"))
             log.flush()
-            assert proc.stdout is not None
-            for line in proc.stdout:
-                log.write(line)
-                log.flush()
-                now = time.time()
-                if now - start > timeout_s:
-                    killed = True
-                    _kill_group(proc)
-                    raise ColmapStageError(f"阶段超时（>{timeout_s}s）: {args[0]}")
-                if cancel_check and (now - (getattr(self, "_last_cancel_check", 0)) > 1.0):
-                    self._last_cancel_check = now
-                    if cancel_check():
-                        killed = True
-                        _kill_group(proc)
+            output_start = log.tell()
+            # Logging to the file directly keeps polling independent of child output.
+            try:
+                proc = subprocess.Popen(
+                    cmd, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+                    start_new_session=(os.name == "posix"),
+                )
+            except FileNotFoundError as exc:
+                raise ColmapNotFoundError(f"COLMAP 不可用: {self.colmap_bin}") from exc
+            deadline = time.monotonic() + timeout_s
+            try:
+                while True:
+                    if cancel_check and cancel_check():
                         raise CancelledError("任务已被用户取消")
-            code = proc.wait()
-        if killed:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise ColmapStageError(f"阶段超时（>{timeout_s}s）: {args[0]}")
+                    try:
+                        code = proc.wait(timeout=min(0.5, remaining))
+                        break
+                    except subprocess.TimeoutExpired:
+                        continue
+            except BaseException:
+                # The callback can also raise StageCancelled or a worker timeout.
+                _kill_group(proc)
+                raise
+        if cancel_check and cancel_check():
             raise CancelledError("任务已被用户取消")
         if code != 0:
             raise ColmapStageError(f"COLMAP 命令失败（exit={code}）: {args[0]}，详见阶段日志")
         if success_hint:
-            text = Path(log_file).read_text(encoding="utf-8", errors="replace")
-            if success_hint not in text:
+            with open(log_file, "rb") as log:
+                log.seek(output_start)
+                found = any(success_hint.encode("utf-8") in line for line in log)
+            if not found:
                 raise ColmapStageError(f"COLMAP 命令输出异常（未出现 '{success_hint}'）: {args[0]}")
 
     # ------------------------------------------------------------------
     # 阶段命令构建
     # ------------------------------------------------------------------
 
-    def feature_extraction(self, db_path: Path, image_dir: Path, log_file: Path, cancel_check=None) -> None:
+    def feature_extraction(self, db_path: Path, image_dir: Path, log_file: Path,
+                           cancel_check=None, max_features: int = 8192) -> None:
         args = [
             "feature_extractor",
             "--database_path", str(db_path),
@@ -127,7 +141,7 @@ class ColmapAdapter:
             "--ImageReader.camera_model", "SIMPLE_RADIAL",
             f"--{self._extraction_prefix}.use_gpu", "1" if self.use_gpu else "0",
             # SIFT 算法参数在所有版本均使用 SiftExtraction 前缀
-            "--SiftExtraction.max_num_features", "8192",
+            "--SiftExtraction.max_num_features", str(max_features),
         ]
         self.run_command(args, log_file, cancel_check)
 
@@ -177,53 +191,74 @@ class ColmapAdapter:
         ]
         self.run_command(args, log_file, cancel_check)
 
-    def dense_stereo(self, dense_dir: Path, log_file: Path, cancel_check=None) -> None:
+    def dense_stereo(self, dense_dir: Path, log_file: Path, cancel_check=None, max_image_size: int = -1) -> None:
         args = [
             "patch_match_stereo",
             "--workspace_path", str(dense_dir),
             "--workspace_format", "COLMAP",
             "--PatchMatchStereo.geom_consistency", "true",
+            "--PatchMatchStereo.max_image_size", str(max_image_size),
         ]
         self.run_command(args, log_file, cancel_check, success_hint=None)
 
-    def stereo_fusion(self, dense_dir: Path, out_ply: Path, log_file: Path, cancel_check=None) -> None:
+    def stereo_fusion(self, dense_dir: Path, out_ply: Path, log_file: Path,
+                      cancel_check=None, max_image_size: int = -1) -> None:
         out_ply.parent.mkdir(parents=True, exist_ok=True)
         args = [
             "stereo_fusion",
             "--workspace_path", str(dense_dir),
             "--workspace_format", "COLMAP",
             "--input_type", "geometric",
+            "--StereoFusion.max_image_size", str(max_image_size),
             "--output_path", str(out_ply),
         ]
         self.run_command(args, log_file, cancel_check)
 
-    def poisson_meshing(self, in_ply: Path, out_ply: Path, log_file: Path, cancel_check=None, quality: int = 10) -> None:
+    def poisson_meshing(self, in_ply: Path, out_ply: Path, log_file: Path,
+                        cancel_check=None, quality: int = 10, num_threads: int = 4) -> None:
         out_ply.parent.mkdir(parents=True, exist_ok=True)
         args = [
             "poisson_mesher",
             "--input_path", str(in_ply),
             "--output_path", str(out_ply),
             "--PoissonMeshing.depth", str(quality),
+            "--PoissonMeshing.num_threads", str(num_threads),
         ]
         self.run_command(args, log_file, cancel_check)
 
 
 def _kill_group(proc: subprocess.Popen) -> None:
-    """终止整个进程组（COLMAP 可能有子进程）。"""
-    try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-    except (ProcessLookupError, PermissionError):
+    """Terminate the process group even if its leader exits before its children."""
+    if os.name != "posix":
+        proc.terminate()
         try:
-            proc.terminate()
-        except Exception:
-            pass
-    try:
-        proc.wait(timeout=10)
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-        except Exception:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
             proc.kill()
+            proc.wait()
+        return
+
+    # start_new_session makes the leader's PID the PGID. getpgid(pid) stops
+    # working after the leader exits, even when descendants remain alive.
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        proc.wait()
+        return
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        proc.poll()
+        try:
+            os.killpg(proc.pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.05)
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    proc.wait()
 
 
 def get_colmap_version(colmap_bin: str) -> str | None:

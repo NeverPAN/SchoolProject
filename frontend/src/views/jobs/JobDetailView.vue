@@ -49,11 +49,16 @@
             title="重建完成，可在项目页的模型列表中查看与下载模型"
             show-icon
           />
+          <el-alert
+            v-if="textureFallback"
+            type="warning" :closable="false" style="margin-top: 12px"
+            title="未生成照片贴图" :description="textureFallback" show-icon
+          />
         </el-card>
 
         <el-card shadow="never" class="section">
           <template #header><span>阶段时间线</span></template>
-          <el-steps direction="vertical" style="max-height: 480px; overflow: auto">
+          <el-steps data-testid="job-stage-timeline" direction="vertical" style="max-height: 480px; overflow: auto">
             <el-step
               v-for="st in allStages"
               :key="st.stage"
@@ -96,8 +101,17 @@ let timer: number | undefined
 
 const STAGE_ORDER = [
   'IMAGE_VALIDATION', 'FEATURE_EXTRACTION', 'FEATURE_MATCHING', 'SPARSE_RECONSTRUCTION',
-  'IMAGE_UNDISTORTION', 'DENSE_RECONSTRUCTION', 'STEREO_FUSION', 'MESHING', 'EXPORTING',
+  'IMAGE_UNDISTORTION', 'DENSE_RECONSTRUCTION', 'STEREO_FUSION', 'MESHING', 'TEXTURING', 'EXPORTING',
 ]
+
+const textureFallback = computed(() => {
+  const events = job.value?.events?.filter((event) => event.stage === 'TEXTURING') || []
+  const outcome = [...events].reverse().find((event) =>
+    event.status !== 'running' && !(event.status === 'skipped' && event.message?.includes('检查点有效')),
+  )
+  if (!outcome || !['skipped', 'warning'].includes(outcome.status)) return ''
+  return outcome.message || '任务未生成照片贴图，请查看可用的导出模型。'
+})
 
 const allStages = computed(() => {
   const events: JobEvent[] = job.value?.events || []

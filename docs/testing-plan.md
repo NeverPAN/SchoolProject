@@ -41,7 +41,7 @@ $ cd backend && pytest tests/ -q
 | IMAGE_VALIDATION | completed（40 张有效） | <1s |
 | FEATURE_EXTRACTION | completed（GPU SIFT） | 6s |
 | FEATURE_MATCHING | completed（sequential） | 4s |
-| SPARSE_RECONSTRUCTION | completed（32/40 注册） | 48s |
+| SPARSE_RECONSTRUCTION | completed（最终检查点经 `model_analyzer` 核实为 40/40 注册） | 48s |
 | IMAGE_UNDISTORTION | completed | 3s |
 | DENSE_RECONSTRUCTION | completed（GPU，与其他任务共享时） | 2030s |
 | STEREO_FUSION | completed（390 万彩色点） | 231s |
@@ -53,7 +53,7 @@ mesh.ply / model.glb（51,474 顶点 / 98,129 面）、job_manifest.json。
 下载校验：GLB 魔数 `glTF`，1.91MB。模型版本 v1 记录正常。
 
 **断点恢复实测**：任务先后经历 3 次失败（外部终止 poisson / 代码修复重启），
-每次 resume 均正确跳过全部已完成阶段（"检查点有效，跳过"），未重复执行稠密重建（2030s 结果复用）。
+部分阶段命中检查点；历史稠密日志记录了 4 次 PatchMatch 命令调用（首次执行加 3 次重入）。已有深度图减少了重入的计算，但不能表述为所有阶段都被应用层跳过。第二阶段的真实 Worker 恢复证据见 [第二阶段验收报告](phase2-acceptance.md)。
 
 **全量数据集**：south-building 128 张全量 SfM+MVS 手动管线验证通过（126 张注册、1249 万点融合）。
 

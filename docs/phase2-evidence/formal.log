@@ -1,0 +1,57 @@
+
+=== 1. 服务健康检查 ===
+服务状态: ok, 重建模式: colmap, COLMAP: True (GPU: True)
+
+=== 2. 注册/登录 ===
+用户 e2e_user 登录成功
+
+=== 3. 创建项目 ===
+项目 #2: E2E-重建测试-1794979825
+
+=== 4. 上传图片 ===
+待上传 100 张，共 920566231 字节
+  进度: 10/100
+  进度: 20/100
+  进度: 30/100
+  进度: 40/100
+  进度: 50/100
+  进度: 60/100
+  进度: 70/100
+  进度: 80/100
+  进度: 90/100
+  进度: 100/100
+上传完成: 成功 100 / 失败 0
+
+=== 5. 图片质量检查 ===
+质量检查: {'checked': 100, 'ok': 100, 'warning': 0, 'invalid': 0}
+
+=== 6. 提交重建任务 ===
+任务 #2 已提交（mode=colmap）
+
+=== 7. 等待重建完成 ===
+  [0s] status=QUEUED stage=- progress=0%
+  [80s] status=RUNNING stage=FEATURE_EXTRACTION progress=2%
+  [100s] status=RUNNING stage=FEATURE_MATCHING progress=15%
+  [125s] status=RUNNING stage=SPARSE_RECONSTRUCTION progress=30%
+  [458s] status=RUNNING stage=IMAGE_UNDISTORTION progress=45%
+  [489s] status=RUNNING stage=DENSE_RECONSTRUCTION progress=50%
+  [2332s] status=RUNNING stage=STEREO_FUSION progress=75%
+  [2377s] status=RUNNING stage=TEXTURING progress=93%
+  [2633s] status=SUCCEEDED stage=- progress=100%
+任务成功，总耗时 2633s
+
+=== 8. 校验阶段事件 ===
+  IMAGE_VALIDATION         completed  2.3s  校验完成：100 张有效
+  FEATURE_EXTRACTION       completed  21.0s  SIFT 特征提取完成
+  FEATURE_MATCHING         completed  22.8s  特征匹配完成（策略 exhaustive）
+  SPARSE_RECONSTRUCTION    completed  335.7s  稀疏重建完成：0
+  IMAGE_UNDISTORTION       completed  26.5s  图像去畸变完成
+  DENSE_RECONSTRUCTION     completed  1844.4s  稠密深度图完成（GPU）
+  STEREO_FUSION            completed  45.0s  点云融合完成（24.0 MB）
+  MESHING                  completed  3.7s  Poisson 网格生成完成（622.2 KB）
+  TEXTURING                skipped    252.4s  照片贴图不可用，保留原有模型导出: Image size (363823104 pixels) exceeds limit of 178956970 pixels, could be decompression bomb DOS attack.
+  EXPORTING                completed  0.5s  导出 4 个产物
+阶段状态全部可解释: True
+
+=== 9. 校验模型产物 ===
+缺少在线照片贴图产物或成功阶段记录

@@ -102,13 +102,39 @@ def colorize_mesh_from_cloud(mesh_ply: Path, cloud_ply: Path, out_ply: Path, max
 
 
 def mesh_to_glb(mesh_ply: Path, out_glb: Path) -> dict:
-    """PLY 网格 → GLB（含顶点颜色）。"""
+    """导出双面、平滑着色的 GLB，保留源网格坐标及三角面绕序。"""
     import trimesh
+    from trimesh.exchange.gltf import export_glb
 
-    mesh = trimesh.load(mesh_ply, force="mesh", process=True)
+    mesh = trimesh.load(mesh_ply, force="mesh", process=False)
+    if not len(mesh.vertices) or not len(mesh.faces):
+        raise ValueError("没有可导出的三角网格")
+    if mesh.visual.kind == "vertex":
+        rgba = mesh.visual.vertex_colors.astype(np.float32) / 255.0
+        rgb = rgba[:, :3]
+        rgba[:, :3] = np.where(rgb <= 0.04045, rgb / 12.92, ((rgb + 0.055) / 1.055) ** 2.4)
+        mesh.visual = trimesh.visual.ColorVisuals(mesh=mesh)
+        mesh.vertex_attributes["_linear_rgba"] = rgba
+    normals = np.array(mesh.vertex_normals, copy=True)
+    invalid = ~np.isfinite(normals).all(axis=1) | (np.linalg.norm(normals, axis=1) < 1e-8)
+    normals[invalid] = (0, 1, 0)
+    mesh.vertex_normals = normals
+
+    def set_material(tree):
+        tree["materials"] = [{
+            "doubleSided": True,
+            "pbrMetallicRoughness": {"metallicFactor": 0, "roughnessFactor": 0.85},
+        }]
+        for geometry in tree["meshes"]:
+            for primitive in geometry["primitives"]:
+                attributes = primitive["attributes"]
+                if "_linear_rgba" in attributes:
+                    attributes["COLOR_0"] = attributes.pop("_linear_rgba")
+                primitive["material"] = 0
+
     out_glb.parent.mkdir(parents=True, exist_ok=True)
-    mesh.export(out_glb, file_type="glb")
-    return ply_stats(out_glb)  # 统计实际意义不大，供参考
+    out_glb.write_bytes(export_glb(mesh, include_normals=True, tree_postprocessor=set_material))
+    return {"vertex_count": len(mesh.vertices), "face_count": len(mesh.faces), "point_count": 0}
 
 
 def pointcloud_to_glb(ply_path: Path, out_glb: Path, max_points: int = 3_000_000) -> bool:

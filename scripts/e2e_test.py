@@ -11,8 +11,9 @@
 from __future__ import annotations
 
 import argparse
-import io
+import hashlib
 import json
+import struct
 import sys
 import time
 from pathlib import Path
@@ -37,6 +38,9 @@ def main() -> int:
     ap.add_argument("--matcher", default="auto")
     ap.add_argument("--no-dense", action="store_true")
     ap.add_argument("--timeout", type=int, default=7200)
+    ap.add_argument("--out-dir", type=Path, default=Path("data/e2e-results"))
+    ap.add_argument("--require-photo", action="store_true")
+    ap.add_argument("--formal", action="store_true", help="Enforce the original-photo size requirements")
     args = ap.parse_args()
 
     base = args.base_url.rstrip("/")
@@ -83,7 +87,12 @@ def main() -> int:
     files_all = sorted(p for p in img_dir.iterdir() if p.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff"))
     if args.images:
         files_all = files_all[: args.images]
-    print(f"待上传 {len(files_all)} 张")
+    sizes = [p.stat().st_size for p in files_all]
+    total_bytes = sum(sizes)
+    if args.formal and not (len(sizes) >= 100 and 500_000_000 <= total_bytes <= 1_000_000_000
+                            and min(sizes) >= 4_000_000):
+        ap.error(f"原片不满足正式数据标准：{len(sizes)} 张，{total_bytes} 字节")
+    print(f"待上传 {len(files_all)} 张，共 {total_bytes} 字节")
     ok, fail = 0, 0
     batch: list[tuple[str, bytes]] = []
     for i, p in enumerate(files_all):
@@ -92,14 +101,21 @@ def main() -> int:
             files = [("files", (name, data, "image/jpeg")) for name, data in batch]
             r = session.post(f"{base}/api/v1/projects/{pid}/images", files=files, headers=headers)
             if r.status_code == 201:
-                ok += len(batch)
+                payload = r.json()
+                accepted = payload if isinstance(payload, list) else payload["items"]
+                ok += len(accepted)
+                fail += len(batch) - len(accepted)
             else:
                 fail += len(batch)
                 print(f"  批次失败: {r.status_code} {r.text[:200]}")
             batch = []
             print(f"  进度: {ok}/{len(files_all)}")
     print(f"上传完成: 成功 {ok} / 失败 {fail}")
-    if ok < 3:
+    detail = session.get(f"{base}/api/v1/projects/{pid}", headers=headers, timeout=30)
+    detail.raise_for_status()
+    uploaded = detail.json()
+    if fail or ok < 3 or ok != len(files_all) or uploaded["image_count"] != ok or uploaded["total_image_bytes"] != total_bytes:
+        print("上传数量或原片字节数不一致，停止验收")
         return 1
 
     # 5. 质量检查
@@ -161,7 +177,11 @@ def main() -> int:
     if not models:
         print("无模型产物！")
         return 1
-    web_model = next((m for m in models if m["model_type"] == "web"), models[0])
+    photo = next((m for m in models if m["stage_origin"] in ("PHOTO_TEXTURE", "PHOTO_TEXTURE_UPRIGHT")), None)
+    if args.require_photo and (photo is None or not any(e["stage"] == "TEXTURING" and e["status"] == "completed" for e in events)):
+        print("缺少在线照片贴图产物或成功阶段记录")
+        return 1
+    web_model = photo or next((m for m in models if m["model_type"] == "web"), models[0])
     for m in models:
         print(f"  #{m['id']} {m['model_type']:<20} {m['format']:<4} {m['file_size']/1024/1024:.1f} MB "
               f"顶点 {m['vertex_count']} 面 {m['face_count']} 点 {m['point_count']}")
@@ -170,12 +190,27 @@ def main() -> int:
     step("10. 下载模型")
     r = session.get(f"{base}/api/v1/models/{web_model['id']}/download", headers=headers)
     r.raise_for_status()
-    out_dir = Path("data/e2e-results")
+    out_dir = args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"model_{web_model['id']}.{web_model['format']}"
     out.write_bytes(r.content)
-    magic_ok = out.read_bytes()[:4] == b"glTF" if web_model["format"] == "glb" else out.read_bytes()[:3] == b"ply"
-    print(f"已下载 {out}（{len(r.content)/1024/1024:.1f} MB, 格式校验 {'OK' if magic_ok else 'FAIL'}）")
+    magic_ok = r.content.startswith(b"glTF" if web_model["format"] == "glb" else b"ply")
+    if not magic_ok or len(r.content) != web_model["file_size"]:
+        raise ValueError("下载文件的格式或长度不匹配")
+    digest = hashlib.sha256(r.content).hexdigest()
+    served = session.get(f"{base}/api/v1/models/{web_model['id']}/file", headers=headers, timeout=120)
+    served.raise_for_status()
+    if hashlib.sha256(served.content).hexdigest() != digest:
+        raise ValueError("查看与下载端点返回了不同文件")
+    if args.require_photo:
+        magic, version, length, json_length, chunk = struct.unpack_from("<4sIII4s", r.content)
+        if (magic, version, length, chunk) != (b"glTF", 2, len(r.content), b"JSON"):
+            raise ValueError("GLB 文件头无效")
+        gltf = json.loads(r.content[20:20 + json_length])
+        if (not gltf.get("images") or not any("TEXCOORD_0" in p["attributes"] for m in gltf["meshes"] for p in m["primitives"])
+                or any("uri" in x for x in gltf["images"] + gltf["buffers"])):
+            raise ValueError("GLB 缺少内部照片纹理或 UV")
+    print(f"已下载 {out}（{len(r.content)/1024/1024:.1f} MB, SHA-256 {digest}）")
 
     # 11. 模型版本
     r = session.get(f"{base}/api/v1/models/{web_model['id']}", headers=headers)

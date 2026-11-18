@@ -13,7 +13,7 @@ import numpy as np
 
 from app.core.logging_setup import get_logger
 from app.reconstruction.export import make_preview_png
-from app.reconstruction.manifest import write_manifest
+from app.reconstruction.manifest import atomic_write_json
 from app.reconstruction.pipeline import PipelineContext, StageCancelled
 
 logger = get_logger("mock")
@@ -83,10 +83,14 @@ class MockPipeline:
         skip_dense = not enable_dense
         skip_mesh = not enable_mesh or skip_dense
 
+        ctx.engine_identity = {"mode": "mock", "version": "mock-v2"}
+        completed: list[str] = []
         for stage in stages:
             stage_dir = ctx.checkpoints_dir / stage
             stage_dir.mkdir(parents=True, exist_ok=True)
-            if ctx.try_resume_stage(stage, stage_dir, []):
+            upstream = tuple(completed[-1:])
+            if ctx.try_resume_stage(stage, stage_dir, [], upstream):
+                completed.append(stage)
                 continue
             ctx.check_cancel(stage)
             if (skip_dense and stage in ("IMAGE_UNDISTORTION", "DENSE_RECONSTRUCTION", "STEREO_FUSION")) or (
@@ -107,20 +111,21 @@ class MockPipeline:
 
                     raise PipelineError(stage, "TOO_FEW_IMAGES", f"有效图片不足 3 张（{n}）")
                 (stage_dir / "validated.json").write_text(json.dumps({"count": n}), encoding="utf-8")
-                write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, ["validated.json"])
+                ctx.write_stage_manifest(stage, stage_dir, ["validated.json"], upstream)
                 ctx.set_stage_result(stage, "completed", f"校验完成：{n} 张（mock）")
             elif stage == "SPARSE_RECONSTRUCTION":
                 pts, cols = _synthetic_cloud(6000, seed=42)
                 _write_ply(stage_dir / "sparse.ply", pts, cols)
-                write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, ["sparse.ply"])
+                ctx.write_stage_manifest(stage, stage_dir, ["sparse.ply"], upstream)
                 ctx.set_stage_result(stage, "completed", "稀疏点云完成（mock）")
             elif stage == "DENSE_RECONSTRUCTION":
-                write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, ["depth.done"])
+                atomic_write_json(stage_dir / "depth.done", {"stage": stage})
+                ctx.write_stage_manifest(stage, stage_dir, ["depth.done"], upstream)
                 ctx.set_stage_result(stage, "completed", "稠密深度图完成（mock）")
             elif stage == "STEREO_FUSION":
                 pts, cols = _synthetic_cloud(150000, seed=7)
                 _write_ply(stage_dir / "fused.ply", pts, cols)
-                write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, ["fused.ply"])
+                ctx.write_stage_manifest(stage, stage_dir, ["fused.ply"], upstream)
                 ctx.set_stage_result(stage, "completed", f"点云融合完成（mock，{len(pts)} 点）")
             elif stage == "MESHING":
                 import trimesh
@@ -130,15 +135,20 @@ class MockPipeline:
                 mesh.visual = trimesh.visual.ColorVisuals(mesh, vertex_colors=cols)
                 stage_dir.mkdir(parents=True, exist_ok=True)
                 mesh.export(stage_dir / "meshed.ply", file_type="ply")
-                write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, ["meshed.ply"])
+                ctx.write_stage_manifest(stage, stage_dir, ["meshed.ply"], upstream)
                 ctx.set_stage_result(stage, "completed", "Poisson 网格完成（mock）")
             elif stage == "EXPORTING":
-                self._export(ctx)
-                write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, ["exported.json"])
+                payload = self._export(ctx)
+                ctx.write_stage_manifest(stage, stage_dir,
+                                         ["exported.json", *((ctx.out_dir / item["path"]).resolve()
+                                                             for item in payload["exported"])], upstream)
                 ctx.set_stage_result(stage, "completed", "导出完成（mock）")
             else:
-                write_manifest(stage_dir, stage, ctx.stage_params(stage), {"job_inputs_sha": ctx.job_inputs_sha}, ["done"])
+                marker = "validated.json" if stage == "IMAGE_VALIDATION" else "done"
+                atomic_write_json(stage_dir / marker, {"stage": stage})
+                ctx.write_stage_manifest(stage, stage_dir, [marker], upstream)
                 ctx.set_stage_result(stage, "completed", f"{stage} 完成（mock）")
+            completed.append(stage)
             ctx.job_log(f"[{stage}] mock 完成，耗时 {time.time()-t0:.1f}s")
         return result
 
@@ -181,6 +191,6 @@ class MockPipeline:
         if preview_src.is_file() and make_preview_png(preview_src, out / "preview.png"):
             exported.append({"type": "preview", "format": "png", "path": "preview.png", "origin": "EXPORTING"})
 
-        (ctx.checkpoints_dir / "EXPORTING" / "exported.json").write_text(
-            json.dumps({"exported": exported, "warnings": []}, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        payload = {"exported": exported, "warnings": []}
+        atomic_write_json(ctx.checkpoints_dir / "EXPORTING" / "exported.json", payload)
+        return payload
