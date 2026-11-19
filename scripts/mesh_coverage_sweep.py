@@ -23,14 +23,16 @@ from scipy.spatial import cKDTree
 from hole_diagnosis import project, quat_to_R, read_cameras_bin, read_images_bin, read_ply
 
 
-def poisson(colmap: str, cloud: Path, out: Path, depth: int, trim: float) -> float:
+def poisson(colmap: str, cloud: Path, out: Path, depth: int, trim: float,
+            point_weight: float = 1.0) -> float:
     out.parent.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
-    subprocess.run(
-        [colmap, "poisson_mesher", "--input_path", str(cloud), "--output_path", str(out),
-         "--PoissonMeshing.depth", str(depth), "--PoissonMeshing.trim", str(trim),
-         "--PoissonMeshing.num_threads", "4"],
-        check=True, capture_output=True)
+    args = [colmap, "poisson_mesher", "--input_path", str(cloud), "--output_path", str(out),
+            "--PoissonMeshing.depth", str(depth), "--PoissonMeshing.trim", str(trim),
+            "--PoissonMeshing.num_threads", "4"]
+    if point_weight != 1.0:
+        args += ["--PoissonMeshing.point_weight", str(point_weight)]
+    subprocess.run(args, check=True, capture_output=True)
     return time.time() - t0
 
 
@@ -89,6 +91,7 @@ def main() -> None:
     ap.add_argument("--point-radius", type=float, default=2.0)
     ap.add_argument("--uv-tol-px", type=float, default=3.0)
     ap.add_argument("--z-tol-frac", type=float, default=0.02)
+    ap.add_argument("--point-weights", default="1", help="逗号分隔，如 1,2,4")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -134,59 +137,60 @@ def main() -> None:
     z_tol = args.z_tol_frac
     for depth in (int(x) for x in args.depths.split(",")):
         for trim in (float(x) for x in args.trims.split(",")):
-            tag = f"d{depth}-t{trim:g}"
-            mesh_path = out_dir / f"mesh-{tag}.ply"
-            elapsed = poisson(args.colmap, Path(args.cloud), mesh_path, depth, trim)
-            verts, _, faces = read_ply(mesh_path)
-            supported_area, mesh_area = [], []
-            pr = int(args.point_radius)
-            px_per_sample = max(1.0, (pr * 0.9) ** 2)  # 采样密度略高于 splat 密度
-            for c in cams:
-                uv, zs, ok = sample_mesh_surface(verts, faces, c["K"], c["R"], c["t"], w, h, px_per_sample)
-                if ok.sum() == 0:
-                    supported_area.append(0.0)
-                    mesh_area.append(0.0)
-                    continue
-                uv_in, zs_in = uv[ok], zs[ok]
-                if len(c["pts"]):
-                    tree = cKDTree(np.stack([
-                        c["pts"][:, 0] / uv_tol,
-                        c["pts"][:, 1] / uv_tol,
-                        c["pts"][:, 2] / (z_tol * c["z_med"]),
-                    ], axis=1))
-                    q = np.stack([
-                        uv_in[:, 0] / uv_tol,
-                        uv_in[:, 1] / uv_tol,
-                        zs_in / (z_tol * c["z_med"]),
-                    ], axis=1)
-                    dist, _ = tree.query(q, k=1, workers=-1)
-                    sup = dist <= 1.0
-                else:
-                    sup = np.zeros(len(uv_in), dtype=bool)
-                mesh_mask = splat_pixels(uv_in, w, h, pr)
-                sup_mask = splat_pixels(uv_in[sup], w, h, pr)
-                mesh_area.append(float(mesh_mask.mean()))
-                supported_area.append(float(sup_mask.mean()))
-            tree_all = cKDTree(cloud)
-            centers = verts[faces].mean(axis=1)
-            dist_c, _ = tree_all.query(centers, k=1, workers=-1)
-            row = {
-                "depth": depth, "trim": trim, "seconds": round(elapsed, 2),
-                "faces": int(faces.shape[0]),
-                "mesh_area": float(np.mean(mesh_area)),
-                "supported_area": float(np.mean(supported_area)),
-                "dense_coverage": float(np.mean(dense_cov)),
-                "unsupported_area": float(np.mean(mesh_area)) - float(np.mean(supported_area)),
-                "p95_center_distance": float(np.quantile(dist_c, 0.95)),
-            }
-            results.append(row)
-            print(json.dumps({k2: (round(v, 4) if isinstance(v, float) else v) for k2, v in row.items()},
-                             ensure_ascii=False))
-            (out_dir / "sweep.json").write_text(
-                json.dumps({"cloud": str(args.cloud), "work_scale": args.work_scale,
-                            "cameras": len(cams), "uv_tol_px": uv_tol, "z_tol_frac": z_tol,
-                            "point_radius": args.point_radius, "results": results}, indent=2))
-            del tree_all
+            for pw in (float(x) for x in args.point_weights.split(",")):
+                tag = f"d{depth}-t{trim:g}-w{pw:g}"
+                mesh_path = out_dir / f"mesh-{tag}.ply"
+                elapsed = poisson(args.colmap, Path(args.cloud), mesh_path, depth, trim, pw)
+                verts, _, faces = read_ply(mesh_path)
+                supported_area, mesh_area = [], []
+                pr = int(args.point_radius)
+                px_per_sample = max(1.0, (pr * 0.9) ** 2)  # 采样密度略高于 splat 密度
+                for c in cams:
+                    uv, zs, ok = sample_mesh_surface(verts, faces, c["K"], c["R"], c["t"], w, h, px_per_sample)
+                    if ok.sum() == 0:
+                        supported_area.append(0.0)
+                        mesh_area.append(0.0)
+                        continue
+                    uv_in, zs_in = uv[ok], zs[ok]
+                    if len(c["pts"]):
+                        tree = cKDTree(np.stack([
+                            c["pts"][:, 0] / uv_tol,
+                            c["pts"][:, 1] / uv_tol,
+                            c["pts"][:, 2] / (z_tol * c["z_med"]),
+                        ], axis=1))
+                        q = np.stack([
+                            uv_in[:, 0] / uv_tol,
+                            uv_in[:, 1] / uv_tol,
+                            zs_in / (z_tol * c["z_med"]),
+                        ], axis=1)
+                        dist, _ = tree.query(q, k=1, workers=-1)
+                        sup = dist <= 1.0
+                    else:
+                        sup = np.zeros(len(uv_in), dtype=bool)
+                    mesh_mask = splat_pixels(uv_in, w, h, pr)
+                    sup_mask = splat_pixels(uv_in[sup], w, h, pr)
+                    mesh_area.append(float(mesh_mask.mean()))
+                    supported_area.append(float(sup_mask.mean()))
+                tree_all = cKDTree(cloud)
+                centers = verts[faces].mean(axis=1)
+                dist_c, _ = tree_all.query(centers, k=1, workers=-1)
+                row = {
+                    "depth": depth, "trim": trim, "point_weight": pw, "seconds": round(elapsed, 2),
+                    "faces": int(faces.shape[0]),
+                    "mesh_area": float(np.mean(mesh_area)),
+                    "supported_area": float(np.mean(supported_area)),
+                    "dense_coverage": float(np.mean(dense_cov)),
+                    "unsupported_area": float(np.mean(mesh_area)) - float(np.mean(supported_area)),
+                    "p95_center_distance": float(np.quantile(dist_c, 0.95)),
+                }
+                results.append(row)
+                print(json.dumps({k2: (round(v, 4) if isinstance(v, float) else v) for k2, v in row.items()},
+                                 ensure_ascii=False))
+                (out_dir / "sweep.json").write_text(
+                    json.dumps({"cloud": str(args.cloud), "work_scale": args.work_scale,
+                                "cameras": len(cams), "uv_tol_px": uv_tol, "z_tol_frac": z_tol,
+                                "point_radius": args.point_radius, "results": results}, indent=2))
+                del tree_all
 
 
 if __name__ == "__main__":

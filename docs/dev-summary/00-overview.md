@@ -13,6 +13,11 @@
 | [3. 质量修复轮：空洞诊断与修复](03-quality-round.md) | 同视角诊断 → 2000px 稠密 → depth10 网格 → 前后对比 |
 | [4. 经验、测试体系与文档规范](04-lessons-and-doc-policy.md) | 问题→方案目录、指标陷阱、今后的文档约定 |
 | [5. 计划对照：已完成与未完成](05-plan-status.md) | 指南阶段 0–9、P0/P1/P2、实验矩阵 E1–E6 逐项对照与建议 |
+| [6. 优化前基线指标](06-baseline-metrics.md) | 速度/质量/GPU 口径固化（对照基准） |
+| [7. 质量方案调研](07-related-work.md) | 文献综述与选型（经典调参/前馈 MVS/高斯泼溅） |
+| [8. 阶段 6 结果](08-optimization-results.md) | 双 GPU 1.99×、3000px 质量提升、point_weight/Delaunay 对照 |
+| [9. 阶段 7 补全](09-append-photo-versioning.md) | 追加照片→版本更新链与 E6 实验 |
+| [10. 阶段 8](10-local-reconstruction-feasibility.md) | 区域选择原型、区域级可行性实验与诚实结论 |
 
 ## 架构总图
 
