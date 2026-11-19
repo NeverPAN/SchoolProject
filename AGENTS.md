@@ -15,6 +15,7 @@
 8. 所有命令与配置必须考虑 Windows 本地开发与 Ubuntu 容器运行的差异；路径配置全部走 `.env`，不硬编码。
 9. 长时间任务不得在 HTTP 请求内同步执行，必须走 Redis + RQ Worker。
 10. 每次任务完成后报告：修改文件、实现内容、测试命令、测试结果、未解决问题。
+11. 每个开发阶段/轮次结束必须写总结文档并更新索引（见下方「文档规范」），不写不算完成。
 
 ## 工作流程
 
@@ -38,6 +39,15 @@
 | 模型展示 | Three.js + GLTFLoader/PLYLoader + OrbitControls |
 | 上传 | 流式写入磁盘，限制类型/大小，记录 SHA-256 |
 | 取消/恢复 | 阶段边界安全取消；恢复前校验 manifest 与输出完整性 |
+
+## 文档规范
+
+> 背景：第一阶段/第二阶段/质量修复轮的完整总结见 [docs/dev-summary/00-overview.md](docs/dev-summary/00-overview.md)。
+
+1. 每个开发阶段或轮次结束，在 `docs/` 写总结文档（架构改动、测试命令与真实结果、问题与解决方案、未解决项与边界），并更新 [docs/dev-summary/00-overview.md](docs/dev-summary/00-overview.md) 索引。
+2. 图文并茂：架构/流程用 mermaid；对比图与截图放 `docs/dev-summary/assets/` 或既有证据目录；原始运行数据留在 `data/`（不入 Git），文档引用其结论与必要截图。
+3. 所有数字来自真实运行的日志与记录，标注采样区间与统计口径；口径变化时同时给出旧口径数据。
+4. 证据文件（日志/JSON/截图）提交到 `docs/*-evidence/` 或 `tests/`，文件名可检索。
 
 ## 目录速览
 
