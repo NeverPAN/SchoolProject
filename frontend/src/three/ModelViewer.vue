@@ -11,6 +11,7 @@
     <div class="hud">
       <slot name="hud" />
     </div>
+    <div ref="rectEl" class="select-rect" style="display: none"></div>
   </div>
 </template>
 
@@ -34,10 +35,14 @@ const props = defineProps<{
   displayUp?: [number, number, number] | null
   legacySrgbVertexColors?: boolean
   background: BackgroundPreset
+  /** 阶段 8 原型：开启后拖拽框选区域（模型坐标包围盒） */
+  selectMode?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'loaded', info: { vertices: number; faces: number; points: number; sizeLabel: string }): void
+  (e: 'region-selected', payload: { bbox_min: number[]; bbox_max: number[]; camera: Record<string, number[]> }): void
+  (e: 'region-failed', reason: string): void
 }>()
 
 const container = ref<HTMLDivElement>()
@@ -55,6 +60,103 @@ let frameId = 0
 let resizeObserver: ResizeObserver | null = null
 let homeView = { pos: new THREE.Vector3(), target: new THREE.Vector3() }
 
+// ---- 阶段 8 原型：框选区域（模型坐标包围盒） ----
+const rectEl = ref<HTMLDivElement>()
+let selecting = false
+let selectStart = { x: 0, y: 0 }
+let regionHelper: THREE.Box3Helper | null = null
+
+function clearRegionHelper() {
+  if (regionHelper && modelRoot) {
+    modelRoot.remove(regionHelper)
+    regionHelper.geometry.dispose()
+    ;(regionHelper.material as THREE.Material).dispose()
+    regionHelper = null
+  }
+}
+
+function onPointerDown(ev: PointerEvent) {
+  if (!props.selectMode || !container.value) return
+  const rect = container.value.getBoundingClientRect()
+  selecting = true
+  selectStart = { x: ev.clientX - rect.left, y: ev.clientY - rect.top }
+  controls && (controls.enabled = false)
+  const el = rectEl.value!
+  el.style.left = `${selectStart.x}px`
+  el.style.top = `${selectStart.y}px`
+  el.style.width = '0px'
+  el.style.height = '0px'
+  el.style.display = 'block'
+  ev.preventDefault()
+}
+
+function onPointerMove(ev: PointerEvent) {
+  if (!selecting || !container.value || !rectEl.value) return
+  const rect = container.value.getBoundingClientRect()
+  const x = ev.clientX - rect.left
+  const y = ev.clientY - rect.top
+  rectEl.value.style.left = `${Math.min(selectStart.x, x)}px`
+  rectEl.value.style.top = `${Math.min(selectStart.y, y)}px`
+  rectEl.value.style.width = `${Math.abs(x - selectStart.x)}px`
+  rectEl.value.style.height = `${Math.abs(y - selectStart.y)}px`
+}
+
+function onPointerUp(ev: PointerEvent) {
+  if (!selecting) return
+  selecting = false
+  controls && (controls.enabled = true)
+  rectEl.value && (rectEl.value.style.display = 'none')
+  if (!container.value || !camera || !modelRoot || !pivot) return
+  const rect = container.value.getBoundingClientRect()
+  const x1 = selectStart.x, y1 = selectStart.y
+  const x2 = ev.clientX - rect.left, y2 = ev.clientY - rect.top
+  if (Math.abs(x2 - x1) < 8 || Math.abs(y2 - y1) < 8) return
+  const toNdc = (px: number, py: number) =>
+    new THREE.Vector2(((px) / rect.width) * 2 - 1, -((py) / rect.height) * 2 + 1)
+  const raycaster = new THREE.Raycaster()
+  const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2
+  const samples = [
+    [cx, cy], [x1, y1], [x2, y1], [x1, y2], [x2, y2],
+    [cx, y1], [cx, y2], [x1, cy], [x2, cy],
+  ] as const
+  const hits: THREE.Vector3[] = []
+  for (const [px, py] of samples) {
+    raycaster.setFromCamera(toNdc(px, py), camera)
+    const list = raycaster.intersectObject(pivot, true)
+    for (const h of list) {
+      if (h.object.userData.previewPoints) continue
+      hits.push(h.point.clone())
+    }
+  }
+  if (!hits.length) {
+    emit('region-failed', '框选未命中模型，请重新拖拽')
+    return
+  }
+  const local = hits.map((p) => modelRoot!.worldToLocal(p.clone()))
+  const min = new THREE.Vector3(
+    Math.min(...local.map((p) => p.x)), Math.min(...local.map((p) => p.y)), Math.min(...local.map((p) => p.z)))
+  const max = new THREE.Vector3(
+    Math.max(...local.map((p) => p.x)), Math.max(...local.map((p) => p.y)), Math.max(...local.map((p) => p.z)))
+  const diag = max.clone().sub(min).length() || 1
+  const pad = diag * 0.005
+  for (const v of [min, max]) {
+    v.x += v === min ? -pad : pad
+    v.y += v === min ? -pad : pad
+    v.z += v === min ? -pad : pad
+  }
+  clearRegionHelper()
+  regionHelper = new THREE.Box3Helper(new THREE.Box3(min, max), 0xff7a00)
+  modelRoot.add(regionHelper)
+  emit('region-selected', {
+    bbox_min: [min.x, min.y, min.z],
+    bbox_max: [max.x, max.y, max.z],
+    camera: {
+      position: [camera.position.x, camera.position.y, camera.position.z],
+      target: controls ? [controls.target.x, controls.target.y, controls.target.z] : [0, 0, 0],
+    },
+  })
+}
+
 const MORANDI_PALETTE = [0xa8beb2, 0xb8a8a0, 0x93a3b3, 0xc4b8ad, 0x9aa8a0, 0xb3ab9c]
 
 // ---------------------------------------------------------------------------
@@ -69,6 +171,9 @@ function initScene() {
   renderer.domElement.classList.add('model-canvas')
   renderer.domElement.setAttribute('aria-label', '三维模型画布')
   el.appendChild(renderer.domElement)
+  renderer.domElement.addEventListener('pointerdown', onPointerDown)
+  renderer.domElement.addEventListener('pointermove', onPointerMove)
+  renderer.domElement.addEventListener('pointerup', onPointerUp)
 
   scene = new THREE.Scene()
   applyBackground()
@@ -433,9 +538,23 @@ watch(
   () => applyBackground(),
 )
 
+watch(
+  () => props.selectMode,
+  (on) => {
+    if (container.value) container.value.classList.toggle('select-mode', !!on)
+    if (!on) {
+      clearRegionHelper()
+      selecting = false
+      controls && (controls.enabled = true)
+      rectEl.value && (rectEl.value.style.display = 'none')
+    }
+  },
+)
+
 onBeforeUnmount(() => {
   cancelAnimationFrame(frameId)
   resizeObserver?.disconnect()
+  clearRegionHelper()
   clearModel()
   controls?.dispose()
   renderer?.dispose()
@@ -475,5 +594,13 @@ onBeforeUnmount(() => {
   right: 12px;
   top: 12px;
   z-index: 5;
+}
+.viewer-container.select-mode :deep(.model-canvas) { cursor: crosshair; }
+.select-rect {
+  position: absolute;
+  border: 1.5px dashed #ff7a00;
+  background: rgba(255, 122, 0, 0.12);
+  pointer-events: none;
+  z-index: 6;
 }
 </style>

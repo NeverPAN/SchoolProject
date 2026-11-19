@@ -188,3 +188,23 @@ class ModelVersion(Base, TimestampMixin):
     manifest_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
     model: Mapped[Model] = relationship(back_populates="versions")
+
+
+class ModelRegion(Base, TimestampMixin):
+    """阶段 8 原型：查看器框选的三维区域（模型坐标系包围盒）。
+
+    仅记录坐标并用于局部区域提取原型任务；不声称已实现局部重建。
+    """
+    __tablename__ = "model_regions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_id: Mapped[int] = mapped_column(ForeignKey("models.id"), index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    bbox_min_x: Mapped[float] = mapped_column(Float, nullable=False)
+    bbox_min_y: Mapped[float] = mapped_column(Float, nullable=False)
+    bbox_min_z: Mapped[float] = mapped_column(Float, nullable=False)
+    bbox_max_x: Mapped[float] = mapped_column(Float, nullable=False)
+    bbox_max_y: Mapped[float] = mapped_column(Float, nullable=False)
+    bbox_max_z: Mapped[float] = mapped_column(Float, nullable=False)
+    camera_json: Mapped[str] = mapped_column(Text, default="{}")  # 框选时的相机位姿（调试/复现用）
+    note: Mapped[str] = mapped_column(String(255), default="")

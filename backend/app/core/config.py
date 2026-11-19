@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     colmap_bin: str = "colmap"
     colmap_texturer_bin: str | None = None  # opt-in, may be a separate CPU build
     recon_use_gpu: str = "auto"  # auto | 1 | 0
+    colmap_gpu_index: str = "0"  # COLMAP gpu_index，多卡如 "0,1"
     default_recon_preset: str = "standard"
     colmap_dense_max_image_size: int = -1
 

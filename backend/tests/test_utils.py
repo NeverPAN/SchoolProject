@@ -109,6 +109,35 @@ def test_colmap_quiet_command_timeout_and_callback(tmp_path):
     assert time.monotonic() - started < 5
 
 
+def test_adapter_passes_gpu_index_to_gpu_stages(tmp_path):
+    """多卡支持：gpu_index 必须进入 SIFT 提取/匹配与稠密重建命令（traceability + 多卡调度）。"""
+    from unittest.mock import patch
+
+    import sys
+
+    from app.reconstruction.adapter import ColmapAdapter
+
+    captured: list[list[str]] = []
+
+    def fake_run(self, args, log_file, cancel_check=None, timeout_s=10, success_hint=None):
+        captured.append(args)
+
+    # 3.13 的版本串来自 `colmap -h`，包含 "COLMAP" 前缀
+    runner = ColmapAdapter(sys.executable, True, "COLMAP 3.13.0 -- Structure-from-Motion", gpu_index="0,1")
+    with patch.object(ColmapAdapter, "run_command", fake_run):
+        runner.feature_extraction(tmp_path / "db.db", tmp_path, tmp_path / "log")
+        runner.feature_matching(tmp_path / "db.db", "exhaustive", tmp_path / "log")
+        runner.dense_stereo(tmp_path / "dense", tmp_path / "log", max_image_size=2000)
+    assert "--FeatureExtraction.gpu_index" in captured[0]
+    assert captured[0][captured[0].index("--FeatureExtraction.gpu_index") + 1] == "0,1"
+    assert "--FeatureMatching.gpu_index" in captured[1]
+    assert "--PatchMatchStereo.gpu_index" in captured[2]
+    assert captured[2][captured[2].index("--PatchMatchStereo.gpu_index") + 1] == "0,1"
+    # 单卡默认值也必须显式传入，保证命令可追溯
+    single = ColmapAdapter(sys.executable, True, "COLMAP 3.13.0")
+    assert single.gpu_index == "0"
+
+
 def test_dense_layout_requires_geometric_depth_and_normal_maps(tmp_path):
     from app.reconstruction.pipeline import _stereo_files, _undistortion_files
 

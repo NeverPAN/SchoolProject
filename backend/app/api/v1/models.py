@@ -10,11 +10,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_owned_project
-from app.core.errors import NotFoundError
+from app.core.errors import NotFoundError, ValidationError
 from app.db.session import get_db
-from app.models.entities import Model, ModelVersion, Project, User
-from app.schemas.api import ModelDetailOut, ModelOut, ModelVersionOut, ModelVersionOutWithModel
-from app.services import model_service
+from app.models.entities import Model, ModelRegion, ModelVersion, Project, User
+from app.schemas.api import (JobOut, LocalUpdateIn, ModelDetailOut, ModelOut,
+                             ModelRegionIn, ModelRegionOut, ModelVersionOut,
+                             ModelVersionOutWithModel)
+from app.services import job_service, model_service
 
 router = APIRouter(tags=["models"])
 
@@ -158,3 +160,77 @@ def delete_model(
     if p.is_file() and not any(_P(s.file_path) == p for s in same_job):
         p.unlink(missing_ok=True)
     return {"code": "OK", "message": "模型记录已删除", "model_id": model_id}
+
+
+# ---- 阶段 8 原型：查看器框选区域 + 区域提取任务（非局部重建） ----
+
+
+def _owned_model(db: Session, model_id: int, user: User) -> Model:
+    return model_service.get_model_checked(db, model_id, user.id)
+
+
+@router.post("/models/{model_id}/regions", response_model=ModelRegionOut, status_code=201)
+def create_region(
+    model_id: int,
+    body: ModelRegionIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    m = _owned_model(db, model_id, user)
+    lo = body.bbox_min
+    hi = body.bbox_max
+    if not all(hi[i] > lo[i] for i in range(3)):
+        raise ValidationError("包围盒无效：bbox_max 必须大于 bbox_min")
+    region = ModelRegion(
+        model_id=m.id, user_id=user.id,
+        bbox_min_x=lo[0], bbox_min_y=lo[1], bbox_min_z=lo[2],
+        bbox_max_x=hi[0], bbox_max_y=hi[1], bbox_max_z=hi[2],
+        camera_json=json.dumps(body.camera, ensure_ascii=False),
+        note=body.note,
+    )
+    db.add(region)
+    db.commit()
+    db.refresh(region)
+    return ModelRegionOut(
+        id=region.id, model_id=region.model_id,
+        bbox_min=(region.bbox_min_x, region.bbox_min_y, region.bbox_min_z),
+        bbox_max=(region.bbox_max_x, region.bbox_max_y, region.bbox_max_z),
+        note=region.note, created_at=region.created_at,
+    )
+
+
+@router.get("/models/{model_id}/regions", response_model=list[ModelRegionOut])
+def list_regions(
+    model_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    m = _owned_model(db, model_id, user)
+    regions = list(db.scalars(select(ModelRegion).where(ModelRegion.model_id == m.id).order_by(ModelRegion.id.desc())))
+    return [
+        ModelRegionOut(
+            id=r.id, model_id=r.model_id,
+            bbox_min=(r.bbox_min_x, r.bbox_min_y, r.bbox_min_z),
+            bbox_max=(r.bbox_max_x, r.bbox_max_y, r.bbox_max_z),
+            note=r.note, created_at=r.created_at,
+        ) for r in regions
+    ]
+
+
+@router.post("/models/{model_id}/local-update", response_model=JobOut, status_code=202)
+def create_local_update(
+    model_id: int,
+    body: LocalUpdateIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """阶段 8 原型：为已保存的选区创建区域提取任务（异步，队列执行）。"""
+    m = _owned_model(db, model_id, user)
+    region = db.get(ModelRegion, body.region_id)
+    if region is None or region.model_id != m.id:
+        raise NotFoundError("选区不存在")
+    job = job_service.create_local_update_job(db, m, body.region_id)
+    job_service.enqueue_job(job.id)
+    from app.api.v1.jobs import _job_out
+
+    return _job_out(job)

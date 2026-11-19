@@ -247,6 +247,18 @@ export const modelApi = {
   async remove(id: number): Promise<void> {
     await api.delete(`/models/${id}`)
   },
+  // 阶段 8 原型：保存查看器框选区域，并创建区域提取任务
+  async saveRegion(
+    id: number,
+    payload: { bbox_min: number[]; bbox_max: number[]; camera?: Record<string, unknown>; note?: string },
+  ): Promise<{ id: number }> {
+    const r = await api.post(`/models/${id}/regions`, payload)
+    return r.data
+  },
+  async createLocalUpdate(id: number, regionId: number): Promise<{ id: number; status: string }> {
+    const r = await api.post(`/models/${id}/local-update`, { region_id: regionId })
+    return r.data
+  },
 }
 
 export { errMsg }

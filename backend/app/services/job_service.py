@@ -16,6 +16,7 @@ from app.db.session import SessionLocal
 from app.models.entities import (
     Image,
     JobStageEvent,
+    Model,
     Project,
     ReconstructionJob,
 )
@@ -118,6 +119,27 @@ def create_job(
         config_json=json.dumps(config, ensure_ascii=False),
         pipeline_mode=mode,
         input_manifest=json.dumps(manifest, ensure_ascii=False),
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+def create_local_update_job(db: Session, model: Model, region_id: int) -> ReconstructionJob:
+    """阶段 8 原型：为区域提取创建 local_update 任务（进入队列，异步执行）。"""
+    _lock_project(db, model.project_id)
+    if _other_active(db, model.project_id):
+        raise ConflictError("该项目已有进行中的重建任务，请等待其结束")
+    config = {"mode": "local_update", "region_id": region_id, "target_model_id": model.id,
+              "use_gpu": False, "enable_dense": False, "enable_mesh": False,
+              "preset": "standard", "matcher": "auto"}
+    job = ReconstructionJob(
+        project_id=model.project_id,
+        status="QUEUED",
+        config_json=json.dumps(config, ensure_ascii=False),
+        pipeline_mode="local_update",
+        input_manifest="{}",
     )
     db.add(job)
     db.commit()

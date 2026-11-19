@@ -287,3 +287,122 @@ def test_stale_worker_closes_events_but_preserves_live_lock(client, auth_headers
         assert (job.status, job.error_code) == ("FAILED", "WORKER_LOST")
         assert job.stage_events[0].status == "failed"
         assert job.stage_events[0].finished_at is not None
+
+
+class TestAppendPhotoVersioning:
+    def test_append_photos_continues_version_chain(self, client, auth_headers, project, upload_images):
+        """阶段 7/E6：追加照片 → 新模型版本续接编号并指向父版本；旧模型保持不变。"""
+        upload_images(4)
+        job1 = client.post(
+            f"/api/v1/projects/{project['id']}/jobs", json={"preset": "fast"}, headers=auth_headers
+        ).json()
+        job1 = wait_job(client, auth_headers, job1["id"])
+        assert job1["status"] == "SUCCEEDED", job1.get("error_message")
+
+        models = client.get(f"/api/v1/projects/{project['id']}/models", headers=auth_headers).json()
+        web1 = next(m for m in models if m["model_type"] == "web")
+        old_bytes = client.get(f"/api/v1/models/{web1['id']}/download", headers=auth_headers).content
+        v1 = client.get(f"/api/v1/models/{web1['id']}", headers=auth_headers).json()["versions"][0]
+
+        upload_images(3, start_seed=100)
+        job2 = client.post(
+            f"/api/v1/projects/{project['id']}/jobs", json={"preset": "fast"}, headers=auth_headers
+        ).json()
+        job2 = wait_job(client, auth_headers, job2["id"])
+        assert job2["status"] == "SUCCEEDED", job2.get("error_message")
+
+        models = client.get(f"/api/v1/projects/{project['id']}/models", headers=auth_headers).json()
+        webs = [m for m in models if m["model_type"] == "web"]
+        assert len(webs) == 2
+        web2 = next(m for m in webs if m["job_id"] == job2["id"])
+        versions = client.get(f"/api/v1/models/{web2['id']}", headers=auth_headers).json()["versions"]
+        assert versions[0]["version_number"] == 2
+        assert versions[0]["change_type"] == "append_images"
+        assert versions[0]["parent_version_id"] == v1["id"]
+        assert "追加 3 张" in versions[0]["change_description"]
+
+        # 旧模型文件与版本不受影响；新模型可下载
+        assert client.get(f"/api/v1/models/{web1['id']}/download", headers=auth_headers).content == old_bytes
+        v1_after = client.get(f"/api/v1/models/{web1['id']}", headers=auth_headers).json()["versions"]
+        assert len(v1_after) == 1 and v1_after[0]["version_number"] == 1
+        new_bytes = client.get(f"/api/v1/models/{web2['id']}/download", headers=auth_headers)
+        assert new_bytes.status_code == 200 and new_bytes.content[:4] == b"glTF"
+
+    def test_rerun_without_new_photos_marks_rerun(self, client, auth_headers, project, upload_images):
+        upload_images(4)
+        job1 = client.post(
+            f"/api/v1/projects/{project['id']}/jobs", json={"preset": "fast"}, headers=auth_headers
+        ).json()
+        job1 = wait_job(client, auth_headers, job1["id"])
+        assert job1["status"] == "SUCCEEDED"
+
+        job2 = client.post(
+            f"/api/v1/projects/{project['id']}/jobs", json={"preset": "fast"}, headers=auth_headers
+        ).json()
+        job2 = wait_job(client, auth_headers, job2["id"])
+        assert job2["status"] == "SUCCEEDED"
+        models = client.get(f"/api/v1/projects/{project['id']}/models", headers=auth_headers).json()
+        web2 = next(m for m in models if m["model_type"] == "web" and m["job_id"] == job2["id"])
+        versions = client.get(f"/api/v1/models/{web2['id']}", headers=auth_headers).json()["versions"]
+        assert versions[0]["version_number"] == 2
+        assert versions[0]["change_type"] == "rerun"
+
+
+class TestRegionPrototype:
+    def test_region_select_and_local_update(self, client, auth_headers, project, upload_images):
+        """阶段 8 原型：保存框选区域 → 区域提取任务 → 登记 LOCAL_REGION 模型。"""
+        upload_images(4)
+        job1 = client.post(
+            f"/api/v1/projects/{project['id']}/jobs", json={"preset": "fast"}, headers=auth_headers
+        ).json()
+        job1 = wait_job(client, auth_headers, job1["id"])
+        assert job1["status"] == "SUCCEEDED", job1.get("error_message")
+
+        models = client.get(f"/api/v1/projects/{project['id']}/models", headers=auth_headers).json()
+        web = next(m for m in models if m["model_type"] == "web")
+
+        r = client.post(
+            f"/api/v1/models/{web['id']}/regions",
+            json={"bbox_min": [-100, -100, -100], "bbox_max": [100, 100, 100],
+                  "camera": {"position": [1, 1, 1]}, "note": "测试选区"},
+            headers=auth_headers,
+        )
+        assert r.status_code == 201, r.text
+        region = r.json()
+        assert region["id"] > 0
+
+        listed = client.get(f"/api/v1/models/{web['id']}/regions", headers=auth_headers).json()
+        assert any(x["id"] == region["id"] for x in listed)
+
+        job2 = client.post(
+            f"/api/v1/models/{web['id']}/local-update",
+            json={"region_id": region["id"]},
+            headers=auth_headers,
+        )
+        assert job2.status_code == 202, job2.text
+        job2 = wait_job(client, auth_headers, job2.json()["id"])
+        assert job2["status"] == "SUCCEEDED", job2.get("error_message")
+
+        models = client.get(f"/api/v1/projects/{project['id']}/models", headers=auth_headers).json()
+        local = next(m for m in models if m.get("stage_origin") == "LOCAL_REGION")
+        assert local["model_type"] == "mesh" and local["face_count"] > 0
+        blob = client.get(f"/api/v1/models/{local['id']}/download", headers=auth_headers)
+        assert blob.status_code == 200 and blob.content[:4] == b"glTF"
+        manifest = client.get(f"/api/v1/models/{local['id']}/manifest", headers=auth_headers).json()
+        assert "非局部重建" in manifest["manifest"]["note"]
+
+    def test_region_invalid_bbox_rejected(self, client, auth_headers, project, upload_images):
+        upload_images(4)
+        job = client.post(
+            f"/api/v1/projects/{project['id']}/jobs", json={"preset": "fast"}, headers=auth_headers
+        ).json()
+        job = wait_job(client, auth_headers, job["id"])
+        assert job["status"] == "SUCCEEDED"
+        models = client.get(f"/api/v1/projects/{project['id']}/models", headers=auth_headers).json()
+        web = next(m for m in models if m["model_type"] == "web")
+        r = client.post(
+            f"/api/v1/models/{web['id']}/regions",
+            json={"bbox_min": [5, 5, 5], "bbox_max": [1, 1, 1]},
+            headers=auth_headers,
+        )
+        assert r.status_code in (400, 422)

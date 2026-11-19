@@ -244,3 +244,26 @@ class ModelVersionCreate(BaseModel):
 
 class ModelVersionOutWithModel(ModelVersionOut):
     model: ModelOut
+
+
+class ModelRegionIn(BaseModel):
+    """阶段 8 原型：查看器框选的三维包围盒（模型坐标系）。"""
+    bbox_min: tuple[float, float, float]
+    bbox_max: tuple[float, float, float]
+    camera: dict = Field(default_factory=dict)  # 框选时的相机参数（可复现）
+    note: str = Field(default="", max_length=255)
+
+
+class ModelRegionOut(BaseModel):
+    id: int
+    model_id: int
+    bbox_min: tuple[float, float, float]
+    bbox_max: tuple[float, float, float]
+    note: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class LocalUpdateIn(BaseModel):
+    region_id: int

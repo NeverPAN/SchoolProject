@@ -43,15 +43,20 @@ class CancelledError(AppError):
 
 
 class ColmapAdapter:
-    def __init__(self, colmap_bin: str, use_gpu: bool, version: str = "unknown"):
+    def __init__(self, colmap_bin: str, use_gpu: bool, version: str = "unknown",
+                 gpu_index: str = "0"):
         self.colmap_bin = colmap_bin
         self.use_gpu = use_gpu
         self.version = version
+        # COLMAP 默认只用 device 0；显式传 gpu_index 才能多卡并行
+        # （patch_match_stereo 按图片分配到各卡，SIFT 提取/匹配同理）。
+        self.gpu_index = str(gpu_index).strip() or "0"
         from app.reconstruction.manifest import sha256_file
 
         executable = Path(shutil.which(colmap_bin) or colmap_bin).resolve()
         self.engine_identity = {
             "mode": "colmap", "version": version, "use_gpu": use_gpu,
+            "gpu_index": self.gpu_index,
             "executable": str(executable),
             "executable_sha256": sha256_file(executable) if executable.is_file() else None,
         }
@@ -140,6 +145,7 @@ class ColmapAdapter:
             "--image_path", str(image_dir),
             "--ImageReader.camera_model", "SIMPLE_RADIAL",
             f"--{self._extraction_prefix}.use_gpu", "1" if self.use_gpu else "0",
+            f"--{self._extraction_prefix}.gpu_index", self.gpu_index,
             # SIFT 算法参数在所有版本均使用 SiftExtraction 前缀
             "--SiftExtraction.max_num_features", str(max_features),
         ]
@@ -155,6 +161,7 @@ class ColmapAdapter:
             sub,
             "--database_path", str(db_path),
             f"--{self._matching_prefix}.use_gpu", "1" if self.use_gpu else "0",
+            f"--{self._matching_prefix}.gpu_index", self.gpu_index,
         ]
         if sub == "sequential_matcher":
             args += ["--SequentialMatching.overlap", "10", "--SequentialMatching.quadratic_overlap", "1"]
@@ -198,6 +205,7 @@ class ColmapAdapter:
             "--workspace_format", "COLMAP",
             "--PatchMatchStereo.geom_consistency", "true",
             "--PatchMatchStereo.max_image_size", str(max_image_size),
+            "--PatchMatchStereo.gpu_index", self.gpu_index,
         ]
         self.run_command(args, log_file, cancel_check, success_hint=None)
 

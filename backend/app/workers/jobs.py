@@ -58,6 +58,18 @@ def _run_claimed_job(job_id: int) -> dict:
 
         ctx.check_cancel("IMAGE_VALIDATION")
         ctx.job_log(f"开始执行任务 {job_id}（mode={mode}, preset={config.get('preset')}）")
+        if mode == "local_update":
+            # 阶段 8 原型：区域提取（非局部重建），不进入重建管线
+            from app.reconstruction import local_region
+
+            records, manifest = local_region.run(job_id, config)
+            ctx.job_log("[LOCAL_UPDATE] 区域提取完成")
+            n_models = _publish(job_id, started, records, manifest)
+            try:
+                ctx.job_log(f"任务完成：登记 {n_models} 个模型（区域提取原型）")
+            except OSError:
+                logger.warning("任务 %s 成功，但日志不可写", job_id)
+            return {"ok": True, "models": n_models, "warnings": []}
         if mode == "mock":
             pipeline = MockPipeline(ctx)
             engine_version = "mock-v2"
@@ -66,7 +78,8 @@ def _run_claimed_job(job_id: int) -> dict:
             engine_version = get_colmap_version(colmap_bin)
             if not engine_version:
                 raise ColmapNotFoundError(f"COLMAP 不可用: {colmap_bin}")
-            adapter = ColmapAdapter(colmap_bin, config.get("use_gpu", False), engine_version)
+            adapter = ColmapAdapter(colmap_bin, config.get("use_gpu", False), engine_version,
+                                    gpu_index=get_settings().colmap_gpu_index)
             pipeline = ColmapPipeline(ctx, adapter)
 
         with SessionLocal() as db:
@@ -93,6 +106,7 @@ def _run_claimed_job(job_id: int) -> dict:
                 "matcher_default": ctx.params.get("matcher_default"),
                 "poisson_depth": ctx.params.get("poisson_depth"),
                 "dense_max_image_size": ctx.dense_max_image_size,
+                "gpu_index": ctx.gpu_index,
             },
             "inputs_sha": input_manifest_sha(inputs),
             "outputs": [item["file_path"] for item in records],
@@ -143,9 +157,30 @@ def _publish(job_id: int, started, records: list[dict], manifest: dict) -> int:
         job = db.get(ReconstructionJob, job_id)
         models = model_service.register_job_models(db, job, records)
         path = Path(model_service.job_manifest_path(job))
+        # 追加照片的版本链：项目此前已有发布模型时，本次 web 模型续接版本号
+        # （change_type=append_images/rerun，parent 指向上一版本），旧模型保持不动。
+        parent = model_service.latest_web_version_before_job(db, job.project_id, job.id)
+        if parent is not None:
+            prev_job = db.get(ReconstructionJob, parent.model.job_id)
+            added = model_service.count_images_added_since(db, job.project_id, prev_job.started_at if prev_job else None)
+            change_type = "append_images" if added > 0 else "rerun"
+            desc = (f"任务 {job_id}：追加 {added} 张照片后更新" if added > 0
+                    else f"任务 {job_id}：同输入重跑")
+        else:
+            added, change_type = 0, "initial"
+            desc = f"任务 {job_id} 重建结果"
         for model in models:
-            model_service.ensure_version(db, model, change_type="initial", description=f"任务 {job_id} 重建结果",
-                                         manifest_path=str(path))
+            if model.model_type == "web" and parent is not None:
+                model_service.ensure_version(
+                    db, model, change_type=change_type, description=desc,
+                    manifest_path=str(path),
+                    version_number=parent.version_number + 1,
+                    parent_version_id=parent.id,
+                )
+            else:
+                model_service.ensure_version(db, model, change_type="initial",
+                                             description=f"任务 {job_id} 重建结果",
+                                             manifest_path=str(path))
         db.flush()
         atomic_write_json(path, {**manifest, "finished_at": finished.isoformat()})
         db.commit()

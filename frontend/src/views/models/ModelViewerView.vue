@@ -12,7 +12,10 @@
     <div class="viewer-layout">
       <div class="viewer-wrap">
           <ModelViewer
-            ref="viewer"
+          :select-mode="selectMode"
+          @region-selected="onRegionSelected"
+          @region-failed="(r: string) => ElMessage.warning(r)
+"            ref="viewer"
             :file-data="fileData"
             :pending="pending"
             :fetch-error="fetchError"
@@ -87,7 +90,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Download, Refresh } from '@element-plus/icons-vue'
+import { ArrowLeft, Crop, Download, Refresh } from '@element-plus/icons-vue'
 import ModelViewer, { type StylePreset, type BackgroundPreset } from '../../three/ModelViewer.vue'
 import { modelApi, fmtSize, fmtTime, errMsg, isPhotoTexture, type ModelDetail } from '../../api'
 
@@ -101,6 +104,7 @@ const stylePreset = ref<StylePreset>('original')
 const bgPreset = ref<BackgroundPreset>('gradient')
 const counts = ref({ vertices: 0, faces: 0, points: 0 })
 const info = ref({ sizeLabel: '' })
+const selectMode = ref(false)
 const orientationHint = computed(() => {
   if (model.value?.stage_origin === 'PHOTO_TEXTURE_UPRIGHT') return '导出模型已校正默认朝向。'
   if (model.value?.display_up) return '默认朝向根据拍摄视角估算。'
@@ -125,6 +129,22 @@ function versionLabel(t: string) {
 function onLoaded(i: { vertices: number; faces: number; points: number; sizeLabel: string }) {
   counts.value = { vertices: i.vertices, faces: i.faces, points: i.points }
   info.value = { sizeLabel: i.sizeLabel }
+}
+
+async function onRegionSelected(payload: { bbox_min: number[]; bbox_max: number[]; camera: Record<string, number[]> }) {
+  try {
+    const region = await modelApi.saveRegion(Number(props.id), {
+      bbox_min: payload.bbox_min,
+      bbox_max: payload.bbox_max,
+      camera: payload.camera,
+      note: '查看器框选',
+    })
+    const job = await modelApi.createLocalUpdate(Number(props.id), region.id)
+    ElMessage.success(`选区 #${region.id} 已保存，区域提取任务 #${job.id} 已创建（阶段 8 原型：区域提取，非局部重建）`)
+    selectMode.value = false
+  } catch (e) {
+    ElMessage.error(errMsg(e))
+  }
 }
 
 async function onDownload() {

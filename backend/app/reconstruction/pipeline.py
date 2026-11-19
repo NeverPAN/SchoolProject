@@ -103,6 +103,7 @@ class PipelineContext:
         )
         self.engine_identity: dict = {"mode": job.pipeline_mode, "version": job.engine_version}
         self.dense_max_image_size = get_settings().colmap_dense_max_image_size
+        self.gpu_index = get_settings().colmap_gpu_index
         self.stage_fingerprints: dict[str, str] = {}
         self.completed_stages: set[str] = set()
 
@@ -176,6 +177,8 @@ class PipelineContext:
             "engine": self.engine_identity,
             **({"max_image_size": self.dense_max_image_size}
                if stage in ("DENSE_RECONSTRUCTION", "STEREO_FUSION") else {}),
+            **({"gpu_index": self.gpu_index}
+               if stage in ("FEATURE_EXTRACTION", "FEATURE_MATCHING", "DENSE_RECONSTRUCTION") else {}),
             **({"poisson_depth": self.params["poisson_depth"], "poisson_threads": POISSON_THREADS}
                if stage == "MESHING" else {}),
             **({"max_features": self.params["max_features"]} if stage == "FEATURE_EXTRACTION" else {}),

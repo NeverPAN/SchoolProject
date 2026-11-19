@@ -116,22 +116,59 @@ def ensure_version(
     change_type: str = "initial",
     description: str = "",
     manifest_path: str | None = None,
+    version_number: int | None = None,
+    parent_version_id: int | None = None,
 ) -> ModelVersion:
-    """Add a version within the caller's transaction."""
+    """Add a version within the caller's transaction.
+
+    version_number/parent_version_id 缺省时自动续号；追加照片更新等场景
+    由调用方显式传入链上编号与父版本，保证跨模型版本链连续。
+    """
     existing = db.scalar(
         select(func.max(ModelVersion.version_number)).where(ModelVersion.model_id == model.id)
     )
     ver = ModelVersion(
         project_id=model.project_id,
         model_id=model.id,
-        version_number=(existing or 0) + 1,
-        parent_version_id=None,
+        version_number=version_number if version_number is not None else (existing or 0) + 1,
+        parent_version_id=parent_version_id,
         change_type=change_type,
         change_description=description,
         manifest_path=manifest_path,
     )
     db.add(ver)
     return ver
+
+
+def latest_web_version_before_job(db: Session, project_id: int, job_id: int) -> ModelVersion | None:
+    """项目内最近一次（不含本次任务）的 web 模型版本，用于追加照片的版本链。"""
+    return db.scalar(
+        select(ModelVersion)
+        .join(Model, ModelVersion.model_id == Model.id)
+        .where(
+            Model.project_id == project_id,
+            Model.model_type == "web",
+            Model.job_id != job_id,
+        )
+        .order_by(ModelVersion.version_number.desc(), ModelVersion.id.desc())
+        .limit(1)
+    )
+
+
+def count_images_added_since(db: Session, project_id: int, since) -> int:
+    """自指定时间后新上传的图片数（追加照片的语义依据）。"""
+    if since is None:
+        return 0
+    from app.models.entities import Image
+
+    return int(
+        db.scalar(
+            select(func.count()).select_from(Image).where(
+                Image.project_id == project_id, Image.created_at > since
+            )
+        )
+        or 0
+    )
 
 
 def get_model_checked(db: Session, model_id: int, user_id: int) -> Model:
