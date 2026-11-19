@@ -194,6 +194,7 @@ def main() -> None:
     ap.add_argument("--point-radius", type=float, default=2.0)
     ap.add_argument("--support-dilate", type=int, default=7, help="点支持判定的膨胀核（奇数）")
     ap.add_argument("--strips", type=int, default=8)
+    ap.add_argument("--max-cameras", type=int, default=0, help="0=全部；>0 时均匀抽样")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -203,6 +204,9 @@ def main() -> None:
     cameras = read_cameras_bin(dense / "sparse" / "cameras.bin")
     images = read_images_bin(dense / "sparse" / "images.bin")
 
+    if args.max_cameras and len(images) > args.max_cameras:
+        step = len(images) / args.max_cameras
+        images = [images[int(i * step)] for i in range(args.max_cameras)]
     one = images_dir / images[0]["name"]
     with Image.open(one) as im:
         full_w, full_h = im.size
