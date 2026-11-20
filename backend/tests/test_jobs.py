@@ -125,6 +125,23 @@ class TestJobLifecycle:
         assert r.json()["status"] == "CANCELLED"
 
 
+    def test_experiment_name_is_display_metadata(self, client, auth_headers, project, upload_images):
+        upload_images(4)
+        base = f"/api/v1/projects/{project['id']}"
+        response = client.post(f"{base}/jobs", headers=auth_headers, json={"experiment_name": "  对照 · 双卡  "})
+        assert response.status_code == 202, response.text
+        job = response.json()
+        assert job["experiment_name"] == "对照 · 双卡"
+        assert "experiment_name" not in job["config"]
+        assert wait_job(client, auth_headers, job["id"])["status"] == "SUCCEEDED"
+        assert client.get(f"{base}/jobs", headers=auth_headers).json()[0]["experiment_name"] == "对照 · 双卡"
+        for model in client.get(f"{base}/models", headers=auth_headers).json():
+            detail = client.get(f"/api/v1/models/{model['id']}", headers=auth_headers).json()
+            assert detail["experiment_name"] == "对照 · 双卡" and detail["experiment"] is None
+        invalid = client.post(f"{base}/jobs", headers=auth_headers, json={"experiment_name": "x" * 121})
+        assert invalid.status_code == 422
+
+
 class TestResume:
     def test_resume_after_failure_skips_completed_stages(
         self, client, auth_headers, project, upload_images, monkeypatch

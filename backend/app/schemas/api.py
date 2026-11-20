@@ -152,6 +152,7 @@ class JobCreateRequest(BaseModel):
     matcher: MatcherType = "auto"
     enable_dense: bool = True
     enable_mesh: bool = True
+    experiment_name: str | None = Field(default=None, max_length=120)
 
 
 class JobConfigOut(BaseModel):
@@ -182,6 +183,7 @@ class JobOut(BaseModel):
     current_stage: str | None
     progress: float
     pipeline_mode: str
+    experiment_name: str | None
     engine_version: str | None
     config: JobConfigOut
     started_at: datetime | None
@@ -220,6 +222,9 @@ class ModelOut(BaseModel):
 
 
 class ModelDetailOut(ModelOut):
+    experiment_name: str | None = None
+    experiment: dict | None = None
+    pipeline_mode: str | None = None
     versions: list["ModelVersionOut"] = []
     display_up: tuple[float, float, float] | None = None
     legacy_srgb_vertex_colors: bool = False

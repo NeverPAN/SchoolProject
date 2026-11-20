@@ -59,6 +59,7 @@ export interface JobEvent {
 }
 
 export interface Job {
+  experiment_name?: string | null
   id: number
   project_id: number
   status: string
@@ -108,6 +109,9 @@ export interface ModelItem {
 }
 
 export interface ModelDetail extends ModelItem {
+  experiment?: { code: string; parent: string | null; scope: string } | null
+  experiment_name?: string | null
+  pipeline_mode?: string | null
   display_up?: [number, number, number] | null
   legacy_srgb_vertex_colors: boolean
 }
@@ -192,7 +196,7 @@ export const imageApi = {
 // ---------- Jobs ----------
 
 export const jobApi = {
-  async create(projectId: number, opts: { preset: string; matcher: string; enable_dense: boolean; enable_mesh: boolean }): Promise<Job> {
+  async create(projectId: number, opts: { preset: string; matcher: string; enable_dense: boolean; enable_mesh: boolean; experiment_name?: string }): Promise<Job> {
     const r = await api.post(`/projects/${projectId}/jobs`, opts)
     return r.data
   },

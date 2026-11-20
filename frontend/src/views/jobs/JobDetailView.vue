@@ -27,11 +27,12 @@
           />
           <el-descriptions :column="3" border size="small">
             <el-descriptions-item label="当前阶段">{{ job.current_stage ? (STAGE_LABELS[job.current_stage] || job.current_stage) : '-' }}</el-descriptions-item>
-            <el-descriptions-item :label="isRegionJob ? '任务模式' : '重建模式'">{{ isRegionJob ? '从已有网格裁剪导出' : job.pipeline_mode === 'mock' ? '模拟管线' : 'COLMAP 真实重建' }}</el-descriptions-item>
+            <el-descriptions-item v-if="job.experiment_name" label="版本名称">{{ job.experiment_name }}</el-descriptions-item>
+            <el-descriptions-item :label="isRegionJob ? '任务模式' : '重建模式'">{{ isRegionJob ? '从已有网格裁剪导出' : job.pipeline_mode === 'mock' ? '模拟管线' : job.pipeline_mode === 'experiment' ? '实验归档' : 'COLMAP 真实重建' }}</el-descriptions-item>
             <el-descriptions-item v-if="!isRegionJob" label="引擎版本">{{ job.engine_version || '-' }}</el-descriptions-item>
             <el-descriptions-item label="开始时间">{{ fmtTime(job.started_at) }}</el-descriptions-item>
             <el-descriptions-item label="结束时间">{{ fmtTime(job.finished_at) }}</el-descriptions-item>
-            <template v-if="!isRegionJob">
+            <template v-if="!isRegionJob && job.pipeline_mode !== 'experiment'">
               <el-descriptions-item label="GPU">{{ job.config?.use_gpu ? '启用' : '未启用' }}</el-descriptions-item>
               <el-descriptions-item label="质量预设">{{ { fast: '快速', standard: '标准', high: '高精度' }[job.config?.preset] || job.config?.preset }}</el-descriptions-item>
               <el-descriptions-item label="匹配策略">{{ { auto: '自动', exhaustive: '穷举', sequential: '顺序' }[job.config?.matcher] || job.config?.matcher }}</el-descriptions-item>

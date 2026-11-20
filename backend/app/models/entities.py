@@ -118,6 +118,7 @@ class ReconstructionJob(Base, TimestampMixin):
     # 阶段权重估算进度（0-100），明确标注为估算值
     progress: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     config_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    experiment_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     pipeline_mode: Mapped[str] = mapped_column(String(16), default="colmap", nullable=False)
     engine_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     input_manifest: Mapped[str | None] = mapped_column(Text, nullable=True)

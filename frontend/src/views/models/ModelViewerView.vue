@@ -3,6 +3,11 @@
     <div class="toolbar">
       <el-button :icon="ArrowLeft" text @click="$router.back()">返回</el-button>
       <h3>三维模型查看 #{{ id }}</h3>
+      <el-tag v-if="model?.experiment_name || model?.job_id" size="small">
+        {{ model.experiment_name || `任务 #${model.job_id}` }}<template v-if="model.experiment_name && model.job_id"> · 任务 #{{ model.job_id }}</template>
+      </el-tag>
+      <el-tag v-if="model?.pipeline_mode === 'experiment'" size="small" type="warning">实验归档</el-tag>
+      <el-tag v-else-if="model?.pipeline_mode === 'mock'" size="small" type="info">模拟</el-tag>
       <el-tag v-if="model?.stage_origin === 'LOCAL_REGION'" type="info" size="small">区域提取结果</el-tag>
       <el-tag v-else-if="model && isPhotoTexture(model)" type="success" size="small">照片贴图 · GLB</el-tag>
       <div class="spacer" />
@@ -84,6 +89,8 @@
           <el-divider />
           <template v-if="model">
             <el-descriptions :column="1" size="small" border>
+              <el-descriptions-item v-if="model.experiment" label="父版本">{{ model.experiment.parent || '基线' }}</el-descriptions-item>
+              <el-descriptions-item v-if="model.experiment" label="实验范围">{{ model.experiment.scope }}</el-descriptions-item>
               <el-descriptions-item label="类型">{{ modelTypeLabel(model.model_type) }}</el-descriptions-item>
               <el-descriptions-item label="格式">{{ model.format.toUpperCase() }}</el-descriptions-item>
               <el-descriptions-item label="文件大小">{{ fmtSize(model.file_size) }}</el-descriptions-item>

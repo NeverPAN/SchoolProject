@@ -93,7 +93,7 @@ def create_job(
     matcher: str,
     enable_dense: bool,
     enable_mesh: bool,
-    *, status: str = "CREATED",
+    *, status: str = "CREATED", experiment_name: str | None = None,
 ) -> ReconstructionJob:
     settings = get_settings()
     mode = _resolve_mode(None)
@@ -117,6 +117,7 @@ def create_job(
         project_id=project.id,
         status=status,
         config_json=json.dumps(config, ensure_ascii=False),
+        experiment_name=(experiment_name or '').strip()[:120] or None,
         pipeline_mode=mode,
         input_manifest=json.dumps(manifest, ensure_ascii=False),
     )
@@ -159,8 +160,8 @@ def enqueue_job(job_id: int) -> None:
     queue.enqueue("app.workers.jobs.run_reconstruction_job", job_id, job_timeout=24 * 3600)
 
 
-def submit_new_job(db: Session, project, preset: str, matcher: str, enable_dense: bool, enable_mesh: bool) -> ReconstructionJob:
-    job = create_job(db, project, preset, matcher, enable_dense, enable_mesh, status="QUEUED")
+def submit_new_job(db: Session, project, preset: str, matcher: str, enable_dense: bool, enable_mesh: bool, experiment_name: str | None = None) -> ReconstructionJob:
+    job = create_job(db, project, preset, matcher, enable_dense, enable_mesh, status="QUEUED", experiment_name=experiment_name)
     _enqueue_or_fail(db, job.id, "QUEUED")
     logger.info("任务 %s 已入队（项目 %s）", job.id, project.id)
     return job

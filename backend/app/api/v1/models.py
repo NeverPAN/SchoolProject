@@ -60,6 +60,9 @@ def get_model(
                 and all(type(v) in (float, int) and isfinite(v) for v in up)
                 and any(up))
     return ModelDetailOut(
+        experiment_name=m.job.experiment_name if m.job else None,
+        experiment=display.get("experiment") if m.job and m.job.pipeline_mode == "experiment" else None,
+        pipeline_mode=m.job.pipeline_mode if m.job else None,
         **ModelOut.model_validate(m).model_dump(),
         versions=[ModelVersionOut.model_validate(v) for v in versions],
         display_up=tuple(up) if valid_up else None,

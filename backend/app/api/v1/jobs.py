@@ -26,6 +26,7 @@ def _job_out(job: ReconstructionJob) -> JobOut:
         current_stage=job.current_stage,
         progress=job.progress,
         pipeline_mode=job.pipeline_mode,
+        experiment_name=job.experiment_name,
         engine_version=job.engine_version,
         config=JobConfigOut(**json.loads(job.config_json or "{}")),
         started_at=job.started_at,
@@ -46,7 +47,8 @@ def create_job(
 ):
     """创建并提交重建任务（异步：立即返回 202）。"""
     job = job_service.submit_new_job(
-        db, project, body.preset, body.matcher, body.enable_dense, body.enable_mesh
+        db, project, body.preset, body.matcher, body.enable_dense, body.enable_mesh,
+        experiment_name=body.experiment_name,
     )
     return _job_out(job)
 

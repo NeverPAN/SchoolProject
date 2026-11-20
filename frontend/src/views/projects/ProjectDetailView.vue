@@ -72,7 +72,7 @@
         <el-table-column label="进度" width="180">
           <template #default="{ row }"><el-progress :percentage="Math.round(row.progress)" :status="row.status === 'FAILED' ? 'exception' : row.status === 'SUCCEEDED' ? 'success' : undefined" /></template>
         </el-table-column>
-        <el-table-column label="模式" min-width="180"><template #default="{ row }">{{ row.pipeline_mode === 'local_update' ? '区域提取（非局部重建）' : row.pipeline_mode === 'mock' ? '模拟' : 'COLMAP' }}</template></el-table-column>
+        <el-table-column label="模式" min-width="180"><template #default="{ row }">{{ row.pipeline_mode === 'local_update' ? '区域提取（非局部重建）' : row.pipeline_mode === 'mock' ? '模拟' : row.pipeline_mode === 'experiment' ? '实验归档' : 'COLMAP' }}</template></el-table-column>
         <el-table-column label="创建时间" width="170"><template #default="{ row }">{{ fmtTime(row.created_at) }}</template></el-table-column>
         <el-table-column label="操作" width="90">
           <template #default="{ row }">
@@ -95,6 +95,14 @@
             <el-tag v-else-if="row.stage_origin === 'WEB_REEXPORT'" type="info" size="small">修正版</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="版本名称" min-width="210" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ jobsById.get(row.job_id)?.experiment_name || (row.job_id ? `任务 #${row.job_id}` : '未命名') }}
+            <el-tag v-if="jobsById.get(row.job_id)?.pipeline_mode === 'experiment'" size="small" type="warning">实验归档</el-tag>
+            <el-tag v-else-if="jobsById.get(row.job_id)?.pipeline_mode === 'mock'" size="small" type="info">模拟</el-tag>
+            <small v-if="jobsById.get(row.job_id)?.experiment_name"> · #{{ row.job_id }}</small>
+          </template>
+        </el-table-column>
         <el-table-column label="大小" width="110"><template #default="{ row }">{{ fmtSize(row.file_size) }}</template></el-table-column>
         <el-table-column label="顶点/点数" width="130"><template #default="{ row }">{{ (row.vertex_count || row.point_count || 0).toLocaleString() }}</template></el-table-column>
         <el-table-column label="面数" width="120"><template #default="{ row }">{{ (row.face_count || 0).toLocaleString() }}</template></el-table-column>
@@ -111,6 +119,9 @@
     <!-- 重建任务配置 -->
     <el-dialog v-model="jobDialogVisible" title="创建重建任务" width="480px">
       <el-form label-width="110px">
+        <el-form-item label="版本名称">
+          <el-input v-model="jobForm.experiment_name" maxlength="120" placeholder="可选，如 Bridge · 双卡 3000" />
+        </el-form-item>
         <el-form-item label="质量预设">
           <el-radio-group v-model="jobForm.preset">
             <el-radio-button value="fast">快速</el-radio-button>
@@ -171,7 +182,8 @@ let uploadRequest: AbortController | undefined
 let nextUploadId = 0
 const jobDialogVisible = ref(false)
 const submitting = ref(false)
-const jobForm = ref({ preset: 'standard', matcher: 'auto', enable_dense: true, enable_mesh: true })
+const jobsById = computed(() => new Map(jobs.value.map((job) => [job.id, job])))
+const jobForm = ref({ experiment_name: '', preset: 'standard', matcher: 'auto', enable_dense: true, enable_mesh: true })
 
 const canSubmitJob = computed(() => !uploading.value && (project.value?.image_count ?? 0) >= 3)
 const qualityText = computed(() => {

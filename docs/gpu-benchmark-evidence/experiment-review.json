@@ -1,0 +1,215 @@
+{
+  "project": 1,
+  "experiments": {
+    "B00": {
+      "job": 1,
+      "models": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "artifacts": [
+        {
+          "name": "sparse_pointcloud.ply",
+          "model_id": 1,
+          "sha256": "08b53f4ebe3ec617ce8a5d66d63a551221d3fdbff95f3193952af44673439c5d",
+          "source_model_id": 55,
+          "bytes": 1854488,
+          "vertex_count": 56957,
+          "face_count": 0,
+          "point_count": 56957
+        },
+        {
+          "name": "dense_pointcloud.ply",
+          "model_id": 2,
+          "sha256": "8f363b744e68bce982ade395af41b47268839b54a60b1b566b028dc2868924bf",
+          "source_model_id": 56,
+          "bytes": 130689982,
+          "vertex_count": 4840361,
+          "face_count": 0,
+          "point_count": 4840361
+        },
+        {
+          "name": "mesh.ply",
+          "model_id": 3,
+          "sha256": "55462d82e29e189d71c14ff4870ed4dc84af9cd7d1684ad5edf8436f44d32b7a",
+          "source_model_id": 57,
+          "bytes": 9375853,
+          "vertex_count": 211621,
+          "face_count": 411827,
+          "point_count": 0
+        },
+        {
+          "name": "model.glb",
+          "model_id": 4,
+          "sha256": "b96db8411a0248be6ef41d672f731275025656e615f78759e026ccc9ac8a6843",
+          "source_model_id": 58,
+          "bytes": 13408180,
+          "vertex_count": 211621,
+          "face_count": 411827,
+          "point_count": 0
+        },
+        {
+          "name": "model_photo.glb",
+          "model_id": 5,
+          "sha256": "9b990e0eec215c1c8cdb34a4762c019e52ea7a77c044ccf0c3ee152cc8d3605a",
+          "source_model_id": 59,
+          "bytes": 32880328,
+          "vertex_count": 285374,
+          "face_count": 411827,
+          "point_count": 0
+        }
+      ]
+    },
+    "T01": {
+      "job": 2,
+      "models": [
+        6
+      ],
+      "artifacts": [
+        {
+          "name": "model_photo.glb",
+          "model_id": 6,
+          "sha256": "9b990e0eec215c1c8cdb34a4762c019e52ea7a77c044ccf0c3ee152cc8d3605a",
+          "source_model_id": null,
+          "bytes": 32880328,
+          "vertex_count": 285374,
+          "face_count": 411827,
+          "point_count": 0
+        }
+      ]
+    },
+    "F01": {
+      "job": 3,
+      "models": [
+        7
+      ],
+      "artifacts": [
+        {
+          "name": "fused-56-repeat.ply",
+          "model_id": 7,
+          "sha256": "1ccf52e517598f445d27d353c96dc555068a5207e3acabaf903b5ce134e6b142",
+          "source_model_id": null,
+          "bytes": 130679884,
+          "vertex_count": 4839987,
+          "face_count": 0,
+          "point_count": 4839987
+        }
+      ]
+    },
+    "F02": {
+      "job": 4,
+      "models": [
+        8
+      ],
+      "artifacts": [
+        {
+          "name": "fused-32.ply",
+          "model_id": 8,
+          "sha256": "0927e72edc33c3317361d63fa03ccd2e62ad355d9ccebcdde41c41e426b6311c",
+          "source_model_id": null,
+          "bytes": 130686364,
+          "vertex_count": 4840227,
+          "face_count": 0,
+          "point_count": 4840227
+        }
+      ]
+    },
+    "F03": {
+      "job": 5,
+      "models": [
+        9
+      ],
+      "artifacts": [
+        {
+          "name": "fused-16.ply",
+          "model_id": 9,
+          "sha256": "fe2261624fbd92ed14aa4b773caac62431a5843db0a10818c34769294e18a32e",
+          "source_model_id": null,
+          "bytes": 130702051,
+          "vertex_count": 4840808,
+          "face_count": 0,
+          "point_count": 4840808
+        }
+      ]
+    },
+    "F04": {
+      "job": 6,
+      "models": [
+        10
+      ],
+      "artifacts": [
+        {
+          "name": "fused-16-repeat.ply",
+          "model_id": 10,
+          "sha256": "6417d991f7f1a1f17d0f8b398117e5a7347d987ecf06b8c23cdfdde456366847",
+          "source_model_id": null,
+          "bytes": 130702618,
+          "vertex_count": 4840829,
+          "face_count": 0,
+          "point_count": 4840829
+        }
+      ]
+    },
+    "S00": {
+      "job": 7,
+      "models": [
+        11
+      ],
+      "artifacts": [
+        {
+          "name": "fused-5.ply",
+          "model_id": 11,
+          "sha256": "e6494f2ba185b01ce934746a63b3d47d3b5173d0301e6fcb6e3897d756ee778c",
+          "source_model_id": null,
+          "bytes": 29191906,
+          "vertex_count": 1081173,
+          "face_count": 0,
+          "point_count": 1081173
+        }
+      ]
+    },
+    "S01": {
+      "job": 8,
+      "models": [
+        12
+      ],
+      "artifacts": [
+        {
+          "name": "fused-3.ply",
+          "model_id": 12,
+          "sha256": "68a51a9361849f6bff140bdee71306f851b1049112aac1bd40801f8d1a94459d",
+          "source_model_id": null,
+          "bytes": 26562888,
+          "vertex_count": 983802,
+          "face_count": 0,
+          "point_count": 983802
+        }
+      ]
+    }
+  },
+  "version": {
+    "candidate": "experiments-cd15eb0efa55",
+    "runtime_sha256": "cd15eb0efa558a11db899656693ef5fcc8194816c8ed6fe7415325cde70b9689",
+    "source_git_head": "75e378f04ceeecd2b9b0683fa37d2e8aa290ca71",
+    "includes_uncommitted_changes": true,
+    "mode": "experiment archive; no worker"
+  },
+  "verified_download_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "verification": "authenticated HTTP, artifact parse and SHA-256; not browser interaction"
+}
