@@ -2,7 +2,7 @@
 
 > 用途：阶段 6/7/8 与双 GPU 优化的**对照基准**。所有数字来自真实运行的任务 #6/#7（第二阶段质量修复轮产物），口径见各表注。
 > 回滚点：git tag `baseline-pre-opt-20261120`（bundle 备份 `../backups/repo-baseline-pre-opt-20261120.bundle`，含全部历史）。
-> 对照完成后，新结果记入 [07-optimization-results.md](07-optimization-results.md)。
+> 对照完成后，新结果记入 [08-optimization-results.md](08-optimization-results.md)。
 
 ## 1. 配置口径
 
