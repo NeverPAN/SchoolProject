@@ -18,6 +18,10 @@
 | [8. 阶段 6 结果](08-optimization-results.md) | 双 GPU 1.99×、3000px 质量提升、point_weight/Delaunay 对照 |
 | [9. 阶段 7 补全](09-append-photo-versioning.md) | 追加照片→版本更新链与 E6 实验 |
 | [10. 阶段 8](10-local-reconstruction-feasibility.md) | 区域选择原型、区域级可行性实验与诚实结论 |
+| [11. GPU 与分辨率实验报告](11-gpu-resolution-benchmark.md) | 两套数据的单卡/双卡与 2000/3000 px 矩阵、逐阶段耗时、资源与统一口径质量复测 |
+| [建议补测](建议补测.md) | 补测优先级、代码与数据版本选取、配置、记录模板及最终验收清单 |
+| [13. 质量与速度优化轮](13-quality-speed-optimization-results.md) | 贴图重试、融合线程、PatchMatch 迭代短实验；不达标不切换 18082 |
+| [阶段 9：用户手册](../user-manual.md) · [课程报告框架](../course-report-outline.md) | 图文操作、E1–E8 证据与答辩交付清单 |
 
 ## 架构总图
 

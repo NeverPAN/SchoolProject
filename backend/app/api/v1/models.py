@@ -230,7 +230,6 @@ def create_local_update(
     if region is None or region.model_id != m.id:
         raise NotFoundError("选区不存在")
     job = job_service.create_local_update_job(db, m, body.region_id)
-    job_service.enqueue_job(job.id)
     from app.api.v1.jobs import _job_out
 
     return _job_out(job)

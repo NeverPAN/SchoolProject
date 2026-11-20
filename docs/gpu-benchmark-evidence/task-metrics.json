@@ -1,0 +1,413 @@
+[
+  {
+    "job": 7,
+    "dataset": "South Building",
+    "gpu_indices": [
+      0
+    ],
+    "dense_max_image_size": 2000,
+    "inputs_sha": "b5fbe59cd449d598d0cbe9798ce07b0e0ad87227465765b801ea243af2258dfd",
+    "engine": "COLMAP 3.13.0 -- Structure-from-Motion and Multi-View Stereo",
+    "started_at_utc": "2026-11-18 18:48:25.045284",
+    "finished_at_utc": "2026-11-18 19:20:52.686248",
+    "wall_seconds": 1947.640964,
+    "stage_seconds": {
+      "IMAGE_VALIDATION": 0.204633,
+      "FEATURE_EXTRACTION": 2.600997,
+      "FEATURE_MATCHING": 3.644948,
+      "SPARSE_RECONSTRUCTION": 50.409743,
+      "IMAGE_UNDISTORTION": 3.485163,
+      "DENSE_RECONSTRUCTION": 1727.391382,
+      "STEREO_FUSION": 70.379399,
+      "MESHING": 25.830747,
+      "TEXTURING": 59.787768,
+      "EXPORTING": 3.23536
+    },
+    "models": [
+      {
+        "id": 30,
+        "type": "sparse_pointcloud",
+        "points": 22379,
+        "faces": 0,
+        "bytes": 726854,
+        "origin": "EXPORTING"
+      },
+      {
+        "id": 31,
+        "type": "dense_pointcloud",
+        "points": 1994309,
+        "faces": 0,
+        "bytes": 53846578,
+        "origin": "STEREO_FUSION"
+      },
+      {
+        "id": 32,
+        "type": "mesh",
+        "points": 0,
+        "faces": 1016913,
+        "bytes": 23199874,
+        "origin": "MESHING"
+      },
+      {
+        "id": 33,
+        "type": "web",
+        "points": 0,
+        "faces": 1016913,
+        "bytes": 33212192,
+        "origin": "EXPORTING"
+      },
+      {
+        "id": 34,
+        "type": "web",
+        "points": 0,
+        "faces": 1016913,
+        "bytes": 51083304,
+        "origin": "PHOTO_TEXTURE_UPRIGHT"
+      }
+    ],
+    "textured_faces": 969759
+  },
+  {
+    "job": 8,
+    "dataset": "South Building",
+    "gpu_indices": [
+      0
+    ],
+    "dense_max_image_size": 2000,
+    "inputs_sha": "b5fbe59cd449d598d0cbe9798ce07b0e0ad87227465765b801ea243af2258dfd",
+    "engine": "COLMAP 3.13.0 -- Structure-from-Motion and Multi-View Stereo",
+    "started_at_utc": "2026-11-19 16:42:56.842333",
+    "finished_at_utc": "2026-11-19 17:15:20.419514",
+    "wall_seconds": 1943.577181,
+    "stage_seconds": {
+      "IMAGE_VALIDATION": 0.247668,
+      "FEATURE_EXTRACTION": 2.76003,
+      "FEATURE_MATCHING": 3.639214,
+      "SPARSE_RECONSTRUCTION": 46.729822,
+      "IMAGE_UNDISTORTION": 3.768976,
+      "DENSE_RECONSTRUCTION": 1727.324479,
+      "STEREO_FUSION": 65.585298,
+      "MESHING": 26.215522,
+      "TEXTURING": 60.833759,
+      "EXPORTING": 3.924099
+    },
+    "models": [
+      {
+        "id": 35,
+        "type": "sparse_pointcloud",
+        "points": 22398,
+        "faces": 0,
+        "bytes": 727498,
+        "origin": "EXPORTING"
+      },
+      {
+        "id": 36,
+        "type": "dense_pointcloud",
+        "points": 1984621,
+        "faces": 0,
+        "bytes": 53585002,
+        "origin": "STEREO_FUSION"
+      },
+      {
+        "id": 37,
+        "type": "mesh",
+        "points": 0,
+        "faces": 1018883,
+        "bytes": 23249158,
+        "origin": "MESHING"
+      },
+      {
+        "id": 38,
+        "type": "web",
+        "points": 0,
+        "faces": 1018883,
+        "bytes": 33285656,
+        "origin": "EXPORTING"
+      },
+      {
+        "id": 39,
+        "type": "web",
+        "points": 0,
+        "faces": 1018883,
+        "bytes": 51317608,
+        "origin": "PHOTO_TEXTURE_UPRIGHT"
+      }
+    ],
+    "textured_faces": 971499
+  },
+  {
+    "job": 10,
+    "dataset": "South Building",
+    "gpu_indices": [
+      0,
+      1
+    ],
+    "dense_max_image_size": 2000,
+    "inputs_sha": "b5fbe59cd449d598d0cbe9798ce07b0e0ad87227465765b801ea243af2258dfd",
+    "engine": "COLMAP 3.13.0 -- Structure-from-Motion and Multi-View Stereo",
+    "started_at_utc": "2026-11-19 17:26:41.204338",
+    "finished_at_utc": "2026-11-19 17:44:48.706531",
+    "wall_seconds": 1087.502193,
+    "stage_seconds": {
+      "IMAGE_VALIDATION": 0.255054,
+      "FEATURE_EXTRACTION": 2.860534,
+      "FEATURE_MATCHING": 2.851929,
+      "SPARSE_RECONSTRUCTION": 51.380694,
+      "IMAGE_UNDISTORTION": 3.633508,
+      "DENSE_RECONSTRUCTION": 868.186692,
+      "STEREO_FUSION": 66.153953,
+      "MESHING": 25.871915,
+      "TEXTURING": 60.383611,
+      "EXPORTING": 3.82847
+    },
+    "models": [
+      {
+        "id": 40,
+        "type": "sparse_pointcloud",
+        "points": 22404,
+        "faces": 0,
+        "bytes": 727549,
+        "origin": "EXPORTING"
+      },
+      {
+        "id": 41,
+        "type": "dense_pointcloud",
+        "points": 1986461,
+        "faces": 0,
+        "bytes": 53634682,
+        "origin": "STEREO_FUSION"
+      },
+      {
+        "id": 42,
+        "type": "mesh",
+        "points": 0,
+        "faces": 1030641,
+        "bytes": 23523882,
+        "origin": "MESHING"
+      },
+      {
+        "id": 43,
+        "type": "web",
+        "points": 0,
+        "faces": 1030641,
+        "bytes": 33683312,
+        "origin": "EXPORTING"
+      },
+      {
+        "id": 44,
+        "type": "web",
+        "points": 0,
+        "faces": 1030641,
+        "bytes": 51923984,
+        "origin": "PHOTO_TEXTURE_UPRIGHT"
+      }
+    ],
+    "textured_faces": 981456
+  },
+  {
+    "job": 11,
+    "dataset": "South Building",
+    "gpu_indices": [
+      0,
+      1
+    ],
+    "dense_max_image_size": 3000,
+    "inputs_sha": "b5fbe59cd449d598d0cbe9798ce07b0e0ad87227465765b801ea243af2258dfd",
+    "engine": "COLMAP 3.13.0 -- Structure-from-Motion and Multi-View Stereo",
+    "started_at_utc": "2026-11-19 17:58:22.498727",
+    "finished_at_utc": "2026-11-19 18:27:32.675488",
+    "wall_seconds": 1750.176761,
+    "stage_seconds": {
+      "IMAGE_VALIDATION": 0.257272,
+      "FEATURE_EXTRACTION": 3.209996,
+      "FEATURE_MATCHING": 2.909036,
+      "SPARSE_RECONSTRUCTION": 50.146254,
+      "IMAGE_UNDISTORTION": 3.560574,
+      "DENSE_RECONSTRUCTION": 1408.587581,
+      "STEREO_FUSION": 171.907818,
+      "MESHING": 36.208577,
+      "TEXTURING": 65.973677,
+      "EXPORTING": 5.029601
+    },
+    "models": [
+      {
+        "id": 45,
+        "type": "sparse_pointcloud",
+        "points": 22412,
+        "faces": 0,
+        "bytes": 729008,
+        "origin": "EXPORTING"
+      },
+      {
+        "id": 46,
+        "type": "dense_pointcloud",
+        "points": 3777023,
+        "faces": 0,
+        "bytes": 101979856,
+        "origin": "STEREO_FUSION"
+      },
+      {
+        "id": 47,
+        "type": "mesh",
+        "points": 0,
+        "faces": 1300437,
+        "bytes": 29620246,
+        "origin": "MESHING"
+      },
+      {
+        "id": 48,
+        "type": "web",
+        "points": 0,
+        "faces": 1300437,
+        "bytes": 42371424,
+        "origin": "EXPORTING"
+      },
+      {
+        "id": 49,
+        "type": "web",
+        "points": 0,
+        "faces": 1300437,
+        "bytes": 63461784,
+        "origin": "PHOTO_TEXTURE_UPRIGHT"
+      }
+    ],
+    "textured_faces": 1200800
+  },
+  {
+    "job": 6,
+    "dataset": "ETH3D Bridge",
+    "gpu_indices": [
+      0
+    ],
+    "dense_max_image_size": 2000,
+    "inputs_sha": "1f7a33f3771a66181309525bc916012822c398799d782f34999adf8ebd5b519a",
+    "engine": "COLMAP 3.13.0 -- Structure-from-Motion and Multi-View Stereo",
+    "started_at_utc": "2026-11-18 17:24:30.351566",
+    "finished_at_utc": "2026-11-18 18:48:25.025494",
+    "wall_seconds": 5034.673928,
+    "stage_seconds": {
+      "IMAGE_VALIDATION": 2.305625,
+      "FEATURE_EXTRACTION": 25.259862,
+      "FEATURE_MATCHING": 52.635302,
+      "SPARSE_RECONSTRUCTION": 451.612013,
+      "IMAGE_UNDISTORTION": 27.21287,
+      "DENSE_RECONSTRUCTION": 3916.863904,
+      "STEREO_FUSION": 181.368229,
+      "MESHING": 14.535894,
+      "TEXTURING": 356.988854,
+      "EXPORTING": 2.734744
+    },
+    "models": [
+      {
+        "id": 25,
+        "type": "sparse_pointcloud",
+        "points": 57030,
+        "faces": 0,
+        "bytes": 1843842,
+        "origin": "EXPORTING"
+      },
+      {
+        "id": 26,
+        "type": "dense_pointcloud",
+        "points": 2680272,
+        "faces": 0,
+        "bytes": 72367579,
+        "origin": "STEREO_FUSION"
+      },
+      {
+        "id": 27,
+        "type": "mesh",
+        "points": 0,
+        "faces": 360593,
+        "bytes": 8221450,
+        "origin": "MESHING"
+      },
+      {
+        "id": 28,
+        "type": "web",
+        "points": 0,
+        "faces": 360593,
+        "bytes": 11765220,
+        "origin": "EXPORTING"
+      },
+      {
+        "id": 29,
+        "type": "web",
+        "points": 0,
+        "faces": 360593,
+        "bytes": 30430680,
+        "origin": "PHOTO_TEXTURE"
+      }
+    ],
+    "textured_faces": 330798
+  },
+  {
+    "job": 13,
+    "dataset": "ETH3D Bridge",
+    "gpu_indices": [
+      0,
+      1
+    ],
+    "dense_max_image_size": 3000,
+    "inputs_sha": "1f7a33f3771a66181309525bc916012822c398799d782f34999adf8ebd5b519a",
+    "engine": "COLMAP 3.13.0 -- Structure-from-Motion and Multi-View Stereo",
+    "started_at_utc": "2026-11-19 19:20:24.454261",
+    "finished_at_utc": "2026-11-19 20:36:17.556566",
+    "wall_seconds": 4553.102305,
+    "stage_seconds": {
+      "IMAGE_VALIDATION": 2.146786,
+      "FEATURE_EXTRACTION": 21.925908,
+      "FEATURE_MATCHING": 50.069981,
+      "SPARSE_RECONSTRUCTION": 484.028616,
+      "IMAGE_UNDISTORTION": 27.891077,
+      "DENSE_RECONSTRUCTION": 3151.753853,
+      "STEREO_FUSION": 419.990416,
+      "MESHING": 22.038512,
+      "TEXTURING": 368.390258,
+      "EXPORTING": 3.090076
+    },
+    "models": [
+      {
+        "id": 55,
+        "type": "sparse_pointcloud",
+        "points": 56957,
+        "faces": 0,
+        "bytes": 1854488,
+        "origin": "EXPORTING"
+      },
+      {
+        "id": 56,
+        "type": "dense_pointcloud",
+        "points": 4840361,
+        "faces": 0,
+        "bytes": 130689982,
+        "origin": "STEREO_FUSION"
+      },
+      {
+        "id": 57,
+        "type": "mesh",
+        "points": 0,
+        "faces": 411827,
+        "bytes": 9375853,
+        "origin": "MESHING"
+      },
+      {
+        "id": 58,
+        "type": "web",
+        "points": 0,
+        "faces": 411827,
+        "bytes": 13408180,
+        "origin": "EXPORTING"
+      },
+      {
+        "id": 59,
+        "type": "web",
+        "points": 0,
+        "faces": 411827,
+        "bytes": 32880328,
+        "origin": "PHOTO_TEXTURE"
+      }
+    ],
+    "textured_faces": 369736
+  }
+]

@@ -1,5 +1,5 @@
 <template>
-  <div ref="container" class="viewer-container">
+  <div ref="container" class="viewer-container" :class="{ 'select-mode': selectMode }">
     <div v-if="loading || pending" class="overlay" role="status">
       <el-icon class="is-loading" :size="34"><Loading /></el-icon>
       <div class="overlay-text">模型加载中…</div>
@@ -25,6 +25,11 @@ import { Loading, WarningFilled } from '@element-plus/icons-vue'
 
 export type StylePreset = 'original' | 'morandi' | 'monochrome' | 'wireframe' | 'pointcloud'
 export type BackgroundPreset = 'light' | 'dark' | 'gradient'
+export type RegionSelection = {
+  bbox_min: [number, number, number]
+  bbox_max: [number, number, number]
+  camera: { position: number[]; target: number[] }
+}
 
 const props = defineProps<{
   fileData: ArrayBuffer | null
@@ -37,11 +42,13 @@ const props = defineProps<{
   background: BackgroundPreset
   /** 阶段 8 原型：开启后拖拽框选区域（模型坐标包围盒） */
   selectMode?: boolean
+  selectionLocked?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'loaded', info: { vertices: number; faces: number; points: number; sizeLabel: string }): void
-  (e: 'region-selected', payload: { bbox_min: number[]; bbox_max: number[]; camera: Record<string, number[]> }): void
+  (e: 'region-selected', payload: RegionSelection): void
+  (e: 'region-cleared'): void
   (e: 'region-failed', reason: string): void
 }>()
 
@@ -62,98 +69,99 @@ let homeView = { pos: new THREE.Vector3(), target: new THREE.Vector3() }
 
 // ---- 阶段 8 原型：框选区域（模型坐标包围盒） ----
 const rectEl = ref<HTMLDivElement>()
-let selecting = false
-let selectStart = { x: 0, y: 0 }
+let drag: { id: number; x: number; y: number } | null = null
 let regionHelper: THREE.Box3Helper | null = null
 
 function clearRegionHelper() {
-  if (regionHelper && modelRoot) {
-    modelRoot.remove(regionHelper)
-    regionHelper.geometry.dispose()
-    ;(regionHelper.material as THREE.Material).dispose()
-    regionHelper = null
+  if (!regionHelper) return
+  regionHelper.removeFromParent()
+  regionHelper.geometry.dispose()
+  ;(regionHelper.material as THREE.Material).dispose()
+  regionHelper = null
+}
+
+function stopDrag() {
+  if (!drag) return
+  const { id } = drag
+  drag = null
+  if (rectEl.value) rectEl.value.style.display = 'none'
+  const canvas = renderer?.domElement
+  if (canvas?.hasPointerCapture(id)) canvas.releasePointerCapture(id)
+}
+
+function pointerPosition(ev: PointerEvent, rect: DOMRect) {
+  return {
+    x: THREE.MathUtils.clamp(ev.clientX - rect.left, 0, rect.width),
+    y: THREE.MathUtils.clamp(ev.clientY - rect.top, 0, rect.height),
   }
 }
 
 function onPointerDown(ev: PointerEvent) {
-  if (!props.selectMode || !container.value) return
-  const rect = container.value.getBoundingClientRect()
-  selecting = true
-  selectStart = { x: ev.clientX - rect.left, y: ev.clientY - rect.top }
-  controls && (controls.enabled = false)
-  const el = rectEl.value!
-  el.style.left = `${selectStart.x}px`
-  el.style.top = `${selectStart.y}px`
-  el.style.width = '0px'
-  el.style.height = '0px'
-  el.style.display = 'block'
+  if (!props.selectMode || props.selectionLocked || !modelRoot || !renderer || !ev.isPrimary || ev.button !== 0 || drag) return
+  const canvas = renderer.domElement
+  drag = { id: ev.pointerId, ...pointerPosition(ev, canvas.getBoundingClientRect()) }
+  clearRegionHelper()
+  emit('region-cleared')
+  canvas.setPointerCapture(ev.pointerId)
+  onPointerMove(ev)
   ev.preventDefault()
 }
 
 function onPointerMove(ev: PointerEvent) {
-  if (!selecting || !container.value || !rectEl.value) return
-  const rect = container.value.getBoundingClientRect()
-  const x = ev.clientX - rect.left
-  const y = ev.clientY - rect.top
-  rectEl.value.style.left = `${Math.min(selectStart.x, x)}px`
-  rectEl.value.style.top = `${Math.min(selectStart.y, y)}px`
-  rectEl.value.style.width = `${Math.abs(x - selectStart.x)}px`
-  rectEl.value.style.height = `${Math.abs(y - selectStart.y)}px`
+  if (!drag || drag.id !== ev.pointerId || !renderer || !rectEl.value) return
+  const { x, y } = pointerPosition(ev, renderer.domElement.getBoundingClientRect())
+  const el = rectEl.value
+  el.style.left = `${Math.min(drag.x, x)}px`
+  el.style.top = `${Math.min(drag.y, y)}px`
+  el.style.width = `${Math.abs(x - drag.x)}px`
+  el.style.height = `${Math.abs(y - drag.y)}px`
+  el.style.display = 'block'
+}
+
+function onPointerCancel(ev: PointerEvent) {
+  if (drag?.id === ev.pointerId) stopDrag()
 }
 
 function onPointerUp(ev: PointerEvent) {
-  if (!selecting) return
-  selecting = false
-  controls && (controls.enabled = true)
-  rectEl.value && (rectEl.value.style.display = 'none')
-  if (!container.value || !camera || !modelRoot || !pivot) return
-  const rect = container.value.getBoundingClientRect()
-  const x1 = selectStart.x, y1 = selectStart.y
-  const x2 = ev.clientX - rect.left, y2 = ev.clientY - rect.top
-  if (Math.abs(x2 - x1) < 8 || Math.abs(y2 - y1) < 8) return
-  const toNdc = (px: number, py: number) =>
-    new THREE.Vector2(((px) / rect.width) * 2 - 1, -((py) / rect.height) * 2 + 1)
+  if (!drag || drag.id !== ev.pointerId) return
+  const { x: x1, y: y1 } = drag
+  stopDrag()
+  if (!renderer || !camera || !modelRoot || !props.selectMode) return
+  const rect = renderer.domElement.getBoundingClientRect()
+  const { x: x2, y: y2 } = pointerPosition(ev, rect)
+  if (Math.abs(x2 - x1) < 8 || Math.abs(y2 - y1) < 8) {
+    emit('region-failed', '选区太小，请拖拽更大的矩形')
+    return
+  }
+
+  // Raycaster does not check object visibility. Exclude preview helpers and
+  // hidden meshes explicitly; each sample contributes only its closest mesh hit.
+  const meshes: THREE.Mesh[] = []
+  modelRoot.traverseVisible((obj) => { if (obj instanceof THREE.Mesh) meshes.push(obj) })
+  camera.updateMatrixWorld()
+  modelRoot.updateWorldMatrix(true, true)
   const raycaster = new THREE.Raycaster()
-  const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2
-  const samples = [
-    [cx, cy], [x1, y1], [x2, y1], [x1, y2], [x2, y2],
-    [cx, y1], [cx, y2], [x1, cy], [x2, cy],
-  ] as const
-  const hits: THREE.Vector3[] = []
-  for (const [px, py] of samples) {
-    raycaster.setFromCamera(toNdc(px, py), camera)
-    const list = raycaster.intersectObject(pivot, true)
-    for (const h of list) {
-      if (h.object.userData.previewPoints) continue
-      hits.push(h.point.clone())
+  const bounds = new THREE.Box3()
+  for (const u of [0, 0.5, 1]) {
+    for (const v of [0, 0.5, 1]) {
+      const px = THREE.MathUtils.lerp(x1, x2, u), py = THREE.MathUtils.lerp(y1, y2, v)
+      raycaster.setFromCamera(new THREE.Vector2(px / rect.width * 2 - 1, 1 - py / rect.height * 2), camera)
+      const [nearest] = raycaster.intersectObjects(meshes, false)
+      if (nearest) bounds.expandByPoint(modelRoot.worldToLocal(nearest.point))
     }
   }
-  if (!hits.length) {
+  if (bounds.isEmpty()) {
     emit('region-failed', '框选未命中模型，请重新拖拽')
     return
   }
-  const local = hits.map((p) => modelRoot!.worldToLocal(p.clone()))
-  const min = new THREE.Vector3(
-    Math.min(...local.map((p) => p.x)), Math.min(...local.map((p) => p.y)), Math.min(...local.map((p) => p.z)))
-  const max = new THREE.Vector3(
-    Math.max(...local.map((p) => p.x)), Math.max(...local.map((p) => p.y)), Math.max(...local.map((p) => p.z)))
-  const diag = max.clone().sub(min).length() || 1
-  const pad = diag * 0.005
-  for (const v of [min, max]) {
-    v.x += v === min ? -pad : pad
-    v.y += v === min ? -pad : pad
-    v.z += v === min ? -pad : pad
-  }
-  clearRegionHelper()
-  regionHelper = new THREE.Box3Helper(new THREE.Box3(min, max), 0xff7a00)
+  // A flat surface still needs strictly positive thickness for the backend AABB.
+  bounds.expandByScalar(Math.max(bounds.getSize(new THREE.Vector3()).length() * 0.005, camera.near * 0.01))
+  regionHelper = new THREE.Box3Helper(bounds, 0xff7a00)
   modelRoot.add(regionHelper)
   emit('region-selected', {
-    bbox_min: [min.x, min.y, min.z],
-    bbox_max: [max.x, max.y, max.z],
-    camera: {
-      position: [camera.position.x, camera.position.y, camera.position.z],
-      target: controls ? [controls.target.x, controls.target.y, controls.target.z] : [0, 0, 0],
-    },
+    bbox_min: bounds.min.toArray(),
+    bbox_max: bounds.max.toArray(),
+    camera: { position: camera.position.toArray(), target: controls?.target.toArray() ?? [0, 0, 0] },
   })
 }
 
@@ -174,6 +182,9 @@ function initScene() {
   renderer.domElement.addEventListener('pointerdown', onPointerDown)
   renderer.domElement.addEventListener('pointermove', onPointerMove)
   renderer.domElement.addEventListener('pointerup', onPointerUp)
+  renderer.domElement.addEventListener('pointercancel', onPointerCancel)
+  renderer.domElement.addEventListener('lostpointercapture', onPointerCancel)
+  window.addEventListener('blur', stopDrag)
 
   scene = new THREE.Scene()
   applyBackground()
@@ -182,7 +193,8 @@ function initScene() {
   camera.position.set(3, 3, 5)
 
   controls = new OrbitControls(camera, renderer.domElement)
-  controls.enableDamping = true
+  controls.enableDamping = !props.selectMode
+  controls.enabled = !props.selectMode
   controls.dampingFactor = 0.08
 
   // 灯光
@@ -243,6 +255,8 @@ function onResize() {
 // ---------------------------------------------------------------------------
 
 function clearModel() {
+  stopDrag()
+  clearRegionHelper()
   if (!modelRoot || !scene) return
   if (pivot) scene.remove(pivot)
   pivot = null
@@ -541,12 +555,14 @@ watch(
 watch(
   () => props.selectMode,
   (on) => {
-    if (container.value) container.value.classList.toggle('select-mode', !!on)
+    if (controls) {
+      controls.enabled = !on
+      controls.enableDamping = !on
+      if (on) controls.update()
+    }
     if (!on) {
+      stopDrag()
       clearRegionHelper()
-      selecting = false
-      controls && (controls.enabled = true)
-      rectEl.value && (rectEl.value.style.display = 'none')
     }
   },
 )
@@ -554,7 +570,7 @@ watch(
 onBeforeUnmount(() => {
   cancelAnimationFrame(frameId)
   resizeObserver?.disconnect()
-  clearRegionHelper()
+  window.removeEventListener('blur', stopDrag)
   clearModel()
   controls?.dispose()
   renderer?.dispose()

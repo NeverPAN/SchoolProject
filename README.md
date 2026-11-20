@@ -73,6 +73,10 @@ cd frontend && npm run build            # 前端类型检查 + 构建
 
 ## 文档
 
+- [图文用户手册](docs/user-manual.md)
+- [三个演示版本启动说明](docs/三个演示版本启动说明.txt)
+- [课程设计报告框架](docs/course-report-outline.md) · [课程设计报告正文初稿](docs/course-report.md)
+
 - `DEVELOPMENT_GUIDE.md` — 项目总指南（需求/架构/流程/验收）
 - `docs/architecture.md` — 系统架构
 - `docs/api-contract.md` — API 契约

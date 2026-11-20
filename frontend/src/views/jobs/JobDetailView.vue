@@ -2,7 +2,7 @@
   <div v-if="job">
     <div class="toolbar">
       <el-button :icon="ArrowLeft" text @click="$router.back()">返回</el-button>
-      <h3>重建任务 #{{ job.id }}</h3>
+      <h3>{{ isRegionJob ? '区域提取任务' : '重建任务' }} #{{ job.id }}</h3>
       <el-tag :type="statusType(job.status)">{{ STATUS_LABELS[job.status] || job.status }}</el-tag>
       <div class="spacer" />
       <el-button
@@ -12,13 +12,13 @@
       <el-button
         v-if="['FAILED', 'CANCELLED'].includes(job.status)"
         type="warning" plain @click="onResume"
-      >断点恢复</el-button>
+      >{{ isRegionJob ? '重新入队' : '断点恢复' }}</el-button>
     </div>
 
     <el-row :gutter="16">
       <el-col :span="16">
         <el-card shadow="never" class="section">
-          <template #header><span>执行状态（进度为阶段权重估算值）</span></template>
+          <template #header><span>{{ isRegionJob ? '区域提取（非局部重建）' : '执行状态（进度为阶段权重估算值）' }}</span></template>
           <el-progress
             :percentage="Math.round(job.progress)"
             :stroke-width="18"
@@ -27,28 +27,31 @@
           />
           <el-descriptions :column="3" border size="small">
             <el-descriptions-item label="当前阶段">{{ job.current_stage ? (STAGE_LABELS[job.current_stage] || job.current_stage) : '-' }}</el-descriptions-item>
-            <el-descriptions-item label="重建模式">{{ job.pipeline_mode === 'mock' ? '模拟管线' : 'COLMAP 真实重建' }}</el-descriptions-item>
-            <el-descriptions-item label="引擎版本">{{ job.engine_version || '-' }}</el-descriptions-item>
+            <el-descriptions-item :label="isRegionJob ? '任务模式' : '重建模式'">{{ isRegionJob ? '从已有网格裁剪导出' : job.pipeline_mode === 'mock' ? '模拟管线' : 'COLMAP 真实重建' }}</el-descriptions-item>
+            <el-descriptions-item v-if="!isRegionJob" label="引擎版本">{{ job.engine_version || '-' }}</el-descriptions-item>
             <el-descriptions-item label="开始时间">{{ fmtTime(job.started_at) }}</el-descriptions-item>
             <el-descriptions-item label="结束时间">{{ fmtTime(job.finished_at) }}</el-descriptions-item>
-            <el-descriptions-item label="GPU">{{ job.config?.use_gpu ? '启用' : '未启用' }}</el-descriptions-item>
-            <el-descriptions-item label="质量预设">{{ { fast: '快速', standard: '标准', high: '高精度' }[job.config?.preset] || job.config?.preset }}</el-descriptions-item>
-            <el-descriptions-item label="匹配策略">{{ { auto: '自动', exhaustive: '穷举', sequential: '顺序' }[job.config?.matcher] || job.config?.matcher }}</el-descriptions-item>
-            <el-descriptions-item label="稠密/网格">{{ job.config?.enable_dense ? '开' : '关' }} / {{ job.config?.enable_mesh ? '开' : '关' }}</el-descriptions-item>
+            <template v-if="!isRegionJob">
+              <el-descriptions-item label="GPU">{{ job.config?.use_gpu ? '启用' : '未启用' }}</el-descriptions-item>
+              <el-descriptions-item label="质量预设">{{ { fast: '快速', standard: '标准', high: '高精度' }[job.config?.preset] || job.config?.preset }}</el-descriptions-item>
+              <el-descriptions-item label="匹配策略">{{ { auto: '自动', exhaustive: '穷举', sequential: '顺序' }[job.config?.matcher] || job.config?.matcher }}</el-descriptions-item>
+              <el-descriptions-item label="稠密/网格">{{ job.config?.enable_dense ? '开' : '关' }} / {{ job.config?.enable_mesh ? '开' : '关' }}</el-descriptions-item>
+            </template>
           </el-descriptions>
           <el-alert
             v-if="job.status === 'FAILED'"
             type="error" :closable="false" style="margin-top: 12px"
-            :title="`失败阶段：${STAGE_LABELS[job.error_stage || ''] || job.error_stage || '-'}`"
+            :title="isRegionJob ? '区域提取失败' : `失败阶段：${STAGE_LABELS[job.error_stage || ''] || job.error_stage || '-'}`"
             :description="`${job.error_code || ''}: ${job.error_message || ''}`"
             show-icon
           />
           <el-alert
             v-if="job.status === 'SUCCEEDED'"
             type="success" :closable="false" style="margin-top: 12px"
-            title="重建完成，可在项目页的模型列表中查看与下载模型"
+            :title="isRegionJob ? '区域提取完成，已导出独立模型' : '重建完成，可在项目页的模型列表中查看与下载模型'"
             show-icon
           />
+          <router-link v-if="isRegionJob && job.status === 'SUCCEEDED'" class="result-link" :to="{ name: 'project-detail', params: { id: job.project_id } }">前往项目查看与下载结果</router-link>
           <el-alert
             v-if="textureFallback"
             type="warning" :closable="false" style="margin-top: 12px"
@@ -56,7 +59,7 @@
           />
         </el-card>
 
-        <el-card shadow="never" class="section">
+        <el-card v-if="!isRegionJob || allStages.length" shadow="never" class="section">
           <template #header><span>阶段时间线</span></template>
           <el-steps data-testid="job-stage-timeline" direction="vertical" style="max-height: 480px; overflow: auto">
             <el-step
@@ -75,7 +78,7 @@
           <template #header>
             <div class="card-head">
               <span>任务日志</span>
-              <el-select v-model="logStage" size="small" clearable placeholder="全部阶段" style="width: 150px">
+              <el-select v-if="!isRegionJob" v-model="logStage" size="small" clearable placeholder="全部阶段" style="width: 150px">
                 <el-option v-for="(label, key) in STAGE_LABELS" :key="key" :label="label" :value="key" />
               </el-select>
             </div>
@@ -98,6 +101,7 @@ const job = ref<Job | null>(null)
 const logs = ref('')
 const logStage = ref<string | null>(null)
 let timer: number | undefined
+const isRegionJob = computed(() => job.value?.pipeline_mode === 'local_update')
 
 const STAGE_ORDER = [
   'IMAGE_VALIDATION', 'FEATURE_EXTRACTION', 'FEATURE_MATCHING', 'SPARSE_RECONSTRUCTION',
@@ -172,7 +176,7 @@ async function onCancel() {
 async function onResume() {
   try {
     await jobApi.resume(Number(props.id))
-    ElMessage.success('任务已重新入队，将从有效检查点恢复')
+    ElMessage.success(isRegionJob.value ? '区域提取任务已重新入队' : '任务已重新入队，将从有效检查点恢复')
     await load()
   } catch (e) {
     ElMessage.error(errMsg(e))

@@ -143,6 +143,7 @@ def create_local_update_job(db: Session, model: Model, region_id: int) -> Recons
     )
     db.add(job)
     db.commit()
+    _enqueue_or_fail(db, job.id, "QUEUED")
     db.refresh(job)
     return job
 

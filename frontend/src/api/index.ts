@@ -255,8 +255,8 @@ export const modelApi = {
     const r = await api.post(`/models/${id}/regions`, payload)
     return r.data
   },
-  async createLocalUpdate(id: number, regionId: number): Promise<{ id: number; status: string }> {
-    const r = await api.post(`/models/${id}/local-update`, { region_id: regionId })
+  async createRegionExtraction(id: number, regionId: number): Promise<Job> {
+    const r = await api.post<Job>(`/models/${id}/local-update`, { region_id: regionId })
     return r.data
   },
 }

@@ -155,20 +155,42 @@ def latest_web_version_before_job(db: Session, project_id: int, job_id: int) -> 
     )
 
 
-def count_images_added_since(db: Session, project_id: int, since) -> int:
-    """自指定时间后新上传的图片数（追加照片的语义依据）。"""
-    if since is None:
-        return 0
-    from app.models.entities import Image
+def _input_image_keys(manifest: str | None) -> set[tuple[int, str]] | None:
+    """Read just image identity and bytes from a job's frozen input, not the live project."""
+    try:
+        snapshot = json.loads(manifest) if manifest else None
+    except ValueError:
+        return None
+    if not isinstance(snapshot, dict) or not isinstance(images := snapshot.get("images"), list) or not images:
+        return None
+    if "image_count" in snapshot and snapshot["image_count"] != len(images):
+        return None
+    keys = set()
+    seen_ids = set()
+    for image in images:
+        if not isinstance(image, dict):
+            return None
+        image_id, checksum = image.get("image_id"), image.get("checksum")
+        if (type(image_id) is not int or image_id <= 0 or image_id in seen_ids
+                or not isinstance(checksum, str) or not checksum.strip()):
+            return None
+        seen_ids.add(image_id)
+        keys.add((image_id, checksum))
+    return keys
 
-    return int(
-        db.scalar(
-            select(func.count()).select_from(Image).where(
-                Image.project_id == project_id, Image.created_at > since
-            )
-        )
-        or 0
-    )
+
+def describe_job_version_change(job: ReconstructionJob, previous: ReconstructionJob | None) -> tuple[str, str]:
+    """Classify a web version against its parent's frozen job input."""
+    before = _input_image_keys(previous.input_manifest) if previous else None
+    after = _input_image_keys(job.input_manifest)
+    prefix = f"任务 {job.id}："
+    if before is None or after is None:
+        return "inputs_unknown", prefix + "缺少有效输入快照，无法确认照片变化"
+    if before == after:
+        return "rerun", prefix + "同输入重跑"
+    if before < after:
+        return "append_images", prefix + f"追加 {len(after - before)} 张照片后更新"
+    return "inputs_changed", prefix + "输入照片已删除或替换，重新重建"
 
 
 def get_model_checked(db: Session, model_id: int, user_id: int) -> Model:

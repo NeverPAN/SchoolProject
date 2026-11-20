@@ -58,7 +58,7 @@
 
     <!-- 任务列表 -->
     <el-card shadow="never" class="section">
-      <template #header><span>重建任务</span></template>
+      <template #header><span>任务列表</span></template>
       <el-table :data="jobs" size="small" @row-click="(row: Job) => $router.push({ name: 'job-detail', params: { id: row.id } })">
         <el-table-column label="任务 ID" width="80"><template #default="{ row }">#{{ row.id }}</template></el-table-column>
         <el-table-column label="状态" width="110">
@@ -72,7 +72,7 @@
         <el-table-column label="进度" width="180">
           <template #default="{ row }"><el-progress :percentage="Math.round(row.progress)" :status="row.status === 'FAILED' ? 'exception' : row.status === 'SUCCEEDED' ? 'success' : undefined" /></template>
         </el-table-column>
-        <el-table-column label="模式" width="90"><template #default="{ row }">{{ row.pipeline_mode === 'mock' ? '模拟' : 'COLMAP' }}</template></el-table-column>
+        <el-table-column label="模式" min-width="180"><template #default="{ row }">{{ row.pipeline_mode === 'local_update' ? '区域提取（非局部重建）' : row.pipeline_mode === 'mock' ? '模拟' : 'COLMAP' }}</template></el-table-column>
         <el-table-column label="创建时间" width="170"><template #default="{ row }">{{ fmtTime(row.created_at) }}</template></el-table-column>
         <el-table-column label="操作" width="90">
           <template #default="{ row }">
@@ -90,7 +90,8 @@
         <el-table-column label="类型" min-width="185">
           <template #default="{ row }">
             {{ modelTypeLabel(row.model_type) }} ({{ row.format.toUpperCase() }})
-            <el-tag v-if="isPhotoTexture(row)" type="success" size="small">照片贴图</el-tag>
+            <el-tag v-if="row.stage_origin === 'LOCAL_REGION'" type="info" size="small">区域提取结果</el-tag>
+            <el-tag v-else-if="isPhotoTexture(row)" type="success" size="small">照片贴图</el-tag>
             <el-tag v-else-if="row.stage_origin === 'WEB_REEXPORT'" type="info" size="small">修正版</el-tag>
           </template>
         </el-table-column>

@@ -157,18 +157,11 @@ def _publish(job_id: int, started, records: list[dict], manifest: dict) -> int:
         job = db.get(ReconstructionJob, job_id)
         models = model_service.register_job_models(db, job, records)
         path = Path(model_service.job_manifest_path(job))
-        # 追加照片的版本链：项目此前已有发布模型时，本次 web 模型续接版本号
-        # （change_type=append_images/rerun，parent 指向上一版本），旧模型保持不动。
-        parent = model_service.latest_web_version_before_job(db, job.project_id, job.id)
+        # Only the web models participate in the cross-job version chain.
+        parent = (model_service.latest_web_version_before_job(db, job.project_id, job.id)
+                  if any(model.model_type == "web" for model in models) else None)
         if parent is not None:
-            prev_job = db.get(ReconstructionJob, parent.model.job_id)
-            added = model_service.count_images_added_since(db, job.project_id, prev_job.started_at if prev_job else None)
-            change_type = "append_images" if added > 0 else "rerun"
-            desc = (f"任务 {job_id}：追加 {added} 张照片后更新" if added > 0
-                    else f"任务 {job_id}：同输入重跑")
-        else:
-            added, change_type = 0, "initial"
-            desc = f"任务 {job_id} 重建结果"
+            change_type, desc = model_service.describe_job_version_change(job, parent.model.job)
         for model in models:
             if model.model_type == "web" and parent is not None:
                 model_service.ensure_version(
@@ -179,7 +172,9 @@ def _publish(job_id: int, started, records: list[dict], manifest: dict) -> int:
                 )
             else:
                 model_service.ensure_version(db, model, change_type="initial",
-                                             description=f"任务 {job_id} 重建结果",
+                                             description=(f"任务 {job_id} 区域提取结果（非局部重建）"
+                                                          if job.pipeline_mode == "local_update"
+                                                          else f"任务 {job_id} 重建结果"),
                                              manifest_path=str(path))
         db.flush()
         atomic_write_json(path, {**manifest, "finished_at": finished.isoformat()})

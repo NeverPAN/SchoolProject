@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import time
 
+import pytest
+
 
 def wait_job(client, headers, job_id, statuses=("SUCCEEDED", "FAILED", "CANCELLED"), timeout=90):
     t0 = time.time()
@@ -347,6 +349,158 @@ class TestAppendPhotoVersioning:
         assert versions[0]["version_number"] == 2
         assert versions[0]["change_type"] == "rerun"
 
+    @pytest.mark.parametrize("upload_when", ["QUEUED", "RUNNING"])
+    def test_late_upload_does_not_count_in_frozen_input(
+        self, client, auth_headers, project, upload_images, monkeypatch, upload_when
+    ):
+        from app.reconstruction.mock_pipeline import MockPipeline
+        from app.services import job_service
+        from app.workers.jobs import run_reconstruction_job
+
+        jobs_url = f"/api/v1/projects/{project['id']}/jobs"
+        models_url = f"/api/v1/projects/{project['id']}/models"
+        upload_images(4)
+        r = client.post(jobs_url, json={"preset": "fast"}, headers=auth_headers)
+        assert r.status_code == 202, r.text
+        assert wait_job(client, auth_headers, r.json()["id"])["status"] == "SUCCEEDED"
+
+        # Execute explicitly so the QUEUED upload cannot race with a worker claim.
+        with monkeypatch.context() as patch:
+            patch.setattr(job_service, "enqueue_job", lambda _job_id: None)
+            r = client.post(jobs_url, json={"preset": "fast"}, headers=auth_headers)
+            assert r.status_code == 202, r.text
+            job_id = r.json()["id"]
+            if upload_when == "QUEUED":
+                assert r.json()["status"] == "QUEUED"
+                upload_images(1, start_seed=100)
+            else:
+                run = MockPipeline.run
+
+                def run_after_upload(pipeline):
+                    status = client.get(f"/api/v1/jobs/{job_id}", headers=auth_headers).json()["status"]
+                    assert status == "RUNNING"
+                    upload_images(1, start_seed=100)
+                    return run(pipeline)
+
+                patch.setattr(MockPipeline, "run", run_after_upload)
+            result = run_reconstruction_job(job_id)
+            assert result["ok"], result
+
+        models = client.get(models_url, headers=auth_headers).json()
+        web = next(m for m in models if m["job_id"] == job_id and m["model_type"] == "web")
+        version = client.get(f"/api/v1/models/{web['id']}", headers=auth_headers).json()["versions"][0]
+        assert (version["version_number"], version["change_type"]) == (2, "rerun")
+
+        # The next frozen snapshot does include the late upload, exactly once.
+        r = client.post(jobs_url, json={"preset": "fast"}, headers=auth_headers)
+        assert r.status_code == 202, r.text
+        next_job = wait_job(client, auth_headers, r.json()["id"])
+        assert next_job["status"] == "SUCCEEDED", next_job.get("error_message")
+        models = client.get(models_url, headers=auth_headers).json()
+        web = next(m for m in models if m["job_id"] == next_job["id"] and m["model_type"] == "web")
+        next_version = client.get(f"/api/v1/models/{web['id']}", headers=auth_headers).json()["versions"][0]
+        assert next_version["change_type"] == "append_images"
+        assert next_version["parent_version_id"] == version["id"]
+        assert "追加 1 张" in next_version["change_description"]
+
+    @pytest.mark.parametrize("replace", [False, True], ids=["remove", "replace"])
+    def test_removal_or_replacement_is_not_append(
+        self, client, auth_headers, project, upload_images, replace
+    ):
+        jobs_url = f"/api/v1/projects/{project['id']}/jobs"
+        images = upload_images(4).json()
+        r = client.post(jobs_url, json={"preset": "fast"}, headers=auth_headers)
+        assert r.status_code == 202, r.text
+        assert wait_job(client, auth_headers, r.json()["id"])["status"] == "SUCCEEDED"
+
+        removed = client.delete(f"/api/v1/images/{images[-1]['id']}", headers=auth_headers)
+        assert removed.status_code == 200, removed.text
+        if replace:
+            upload_images(1, start_seed=100)
+        r = client.post(jobs_url, json={"preset": "fast"}, headers=auth_headers)
+        assert r.status_code == 202, r.text
+        job = wait_job(client, auth_headers, r.json()["id"])
+        assert job["status"] == "SUCCEEDED", job.get("error_message")
+        models = client.get(f"/api/v1/projects/{project['id']}/models", headers=auth_headers).json()
+        web = next(m for m in models if m["job_id"] == job["id"] and m["model_type"] == "web")
+        version = client.get(f"/api/v1/models/{web['id']}", headers=auth_headers).json()["versions"][0]
+        assert (version["version_number"], version["change_type"]) == (2, "inputs_changed")
+        assert version["parent_version_id"] is not None
+
+    @pytest.mark.parametrize("manifest", [None, "{", "{}", '{"images": [{"image_id": 1}]}'])
+    def test_invalid_parent_snapshot_uses_unknown_attribution(self, manifest):
+        from app.models.entities import ReconstructionJob
+        from app.services.model_service import describe_job_version_change
+
+        previous = ReconstructionJob(input_manifest=manifest)
+        current = ReconstructionJob(id=2, input_manifest='{"images": [{"image_id": 1, "checksum": "abc"}]}')
+        change_type, _ = describe_job_version_change(current, previous)
+        assert change_type == "inputs_unknown"
+
+    def test_failed_append_publication_preserves_previous_version(
+        self, client, auth_headers, project, upload_images, monkeypatch
+    ):
+        from hashlib import sha256
+
+        from sqlalchemy import select
+
+        from app.db.session import SessionLocal
+        from app.models.entities import ModelVersion
+        from app.workers import jobs
+
+        jobs_url = f"/api/v1/projects/{project['id']}/jobs"
+        models_url = f"/api/v1/projects/{project['id']}/models"
+        upload_images(4)
+        r = client.post(jobs_url, json={"preset": "fast"}, headers=auth_headers)
+        assert r.status_code == 202, r.text
+        assert wait_job(client, auth_headers, r.json()["id"])["status"] == "SUCCEEDED"
+        models_before = client.get(models_url, headers=auth_headers).json()
+        web = next(m for m in models_before if m["model_type"] == "web")
+        model_url = f"/api/v1/models/{web['id']}"
+        version_before = client.get(model_url, headers=auth_headers).json()["versions"]
+        manifest_before = client.get(f"{model_url}/manifest", headers=auth_headers).json()
+        assert manifest_before["manifest"]
+        download_before = client.get(f"{model_url}/download", headers=auth_headers)
+        assert download_before.status_code == 200
+        sha_before = sha256(download_before.content).hexdigest()
+        with SessionLocal() as db:
+            version_ids = set(db.scalars(select(ModelVersion.id).filter_by(project_id=project["id"])))
+
+        upload_images(1, start_seed=100)
+
+        def fail_manifest_write(path, payload):
+            raise OSError("injected update publication failure")
+
+        with monkeypatch.context() as patch:
+            # Fail after new model/version rows are flushed, but before their transaction commits.
+            patch.setattr(jobs, "atomic_write_json", fail_manifest_write)
+            r = client.post(jobs_url, json={"preset": "fast"}, headers=auth_headers)
+            assert r.status_code == 202, r.text
+            failed = wait_job(client, auth_headers, r.json()["id"])
+            assert failed["status"] == "FAILED"
+            assert "injected update publication failure" in failed["error_message"]
+
+        assert client.get(models_url, headers=auth_headers).json() == models_before
+        assert client.get(model_url, headers=auth_headers).json()["versions"] == version_before
+        for endpoint in ("file", "download"):
+            old_artifact = client.get(f"{model_url}/{endpoint}", headers=auth_headers)
+            assert old_artifact.status_code == 200
+            assert sha256(old_artifact.content).hexdigest() == sha_before
+        with SessionLocal() as db:
+            assert set(db.scalars(select(ModelVersion.id).filter_by(project_id=project["id"]))) == version_ids
+        assert client.get(f"{model_url}/manifest", headers=auth_headers).json() == manifest_before
+        retry = client.post(f"/api/v1/jobs/{failed['id']}/resume", headers=auth_headers)
+        assert retry.status_code < 300, retry.text
+        assert wait_job(client, auth_headers, failed["id"])["status"] == "SUCCEEDED"
+        published = client.get(models_url, headers=auth_headers).json()
+        successors = [m for m in published if m["job_id"] == failed["id"] and m["model_type"] == "web"]
+        assert len(successors) == 1
+        version = client.get(f"/api/v1/models/{successors[0]['id']}", headers=auth_headers).json()["versions"]
+        assert len(version) == 1
+        assert (version[0]["parent_version_id"], version[0]["version_number"], version[0]["change_type"]) == (
+            version_before[0]["id"], 2, "append_images"
+        )
+
 
 class TestRegionPrototype:
     def test_region_select_and_local_update(self, client, auth_headers, project, upload_images):
@@ -390,6 +544,42 @@ class TestRegionPrototype:
         assert blob.status_code == 200 and blob.content[:4] == b"glTF"
         manifest = client.get(f"/api/v1/models/{local['id']}/manifest", headers=auth_headers).json()
         assert "非局部重建" in manifest["manifest"]["note"]
+
+    def test_region_queue_failure_allows_retry_with_same_region(
+        self, client, auth_headers, project, upload_images, monkeypatch
+    ):
+        from app.services import job_service
+
+        upload_images(4)
+        result = client.post(f"/api/v1/projects/{project['id']}/jobs", json={}, headers=auth_headers)
+        assert result.status_code == 202, result.text
+        assert wait_job(client, auth_headers, result.json()["id"])["status"] == "SUCCEEDED"
+        models = client.get(f"/api/v1/projects/{project['id']}/models", headers=auth_headers).json()
+        web = next(m for m in models if m["model_type"] == "web")
+        url = f"/api/v1/models/{web['id']}"
+        region = client.post(f"{url}/regions", json={
+            "bbox_min": [-100, -100, -100], "bbox_max": [100, 100, 100],
+        }, headers=auth_headers)
+        assert region.status_code == 201, region.text
+        payload = {"region_id": region.json()["id"]}
+        attempted = []
+
+        def queue_unavailable(job_id):
+            attempted.append(job_id)
+            raise ConnectionError("isolated queue unavailable")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(job_service, "enqueue_job", queue_unavailable)
+            failed = client.post(f"{url}/local-update", json=payload, headers=auth_headers)
+        assert failed.status_code == 409, failed.text
+        assert failed.json()["code"] == "QUEUE_UNAVAILABLE"
+        assert len(attempted) == 1
+        job = client.get(f"/api/v1/jobs/{attempted[0]}", headers=auth_headers).json()
+        assert (job["status"], job["error_code"]) == ("FAILED", "QUEUE_UNAVAILABLE")
+        retried = client.post(f"{url}/local-update", json=payload, headers=auth_headers)
+        assert retried.status_code == 202, retried.text
+        assert wait_job(client, auth_headers, retried.json()["id"])["status"] == "SUCCEEDED"
+        assert client.get(f"{url}/regions", headers=auth_headers).json() == [region.json()]
 
     def test_region_invalid_bbox_rejected(self, client, auth_headers, project, upload_images):
         upload_images(4)
