@@ -1,0 +1,135 @@
+{
+  "parent": "18469/#24 R01; shares C01 filtered point cloud",
+  "parent_sha256": {
+    "fused-filtered.ply": "f96be7d6b2e9c9a0c8d7c9839672bb71f8294109db2124e44cdeb46739460f37",
+    "model_photo.glb": "a5d4ca3a5c87c9deeb3bc78c72554bf652474887adb324c8d231857696964f9d"
+  },
+  "child_geometry": "point cloud only",
+  "parent_points": 4258270,
+  "core_bounds": [
+    [
+      6.48,
+      -0.75,
+      2.46
+    ],
+    [
+      7.95,
+      -0.38,
+      3.1700000000000004
+    ]
+  ],
+  "guard_band": 0.03,
+  "arms": {
+    "control": {
+      "local_points": 1972,
+      "eligible_points": 1972,
+      "added_points": 1379,
+      "output_sha256": "d08e58d3c2f81a36204637a6e1f674eb8ee2447eb65912d22dee32d821e6b38e",
+      "holdout_sparse_landmark_proxy": {
+        "new_DSC_1289.jpg": {
+          "landmarks": 37,
+          "median_distance": 0.010684170676773179,
+          "p90_distance": 0.03339460666048297,
+          "within_0_02": 0.8378378378378378
+        },
+        "new_DSC_1293.jpg": {
+          "landmarks": 35,
+          "median_distance": 0.007704403516525036,
+          "p90_distance": 0.016032926942886848,
+          "within_0_02": 0.9428571428571428
+        }
+      },
+      "cli_elapsed_seconds": {
+        "patch": 148.85999999999999,
+        "fusion": 4.74
+      }
+    },
+    "candidate": {
+      "local_points": 2420,
+      "eligible_points": 1908,
+      "added_points": 1469,
+      "output_sha256": "c124b1432482dd69c9f0eaaaa45d7174d9b37cba9401e334a26f77adc890f55e",
+      "holdout_sparse_landmark_proxy": {
+        "new_DSC_1289.jpg": {
+          "landmarks": 37,
+          "median_distance": 0.010684170676773179,
+          "p90_distance": 0.03339460666048297,
+          "within_0_02": 0.8378378378378378
+        },
+        "new_DSC_1293.jpg": {
+          "landmarks": 35,
+          "median_distance": 0.00945762779511779,
+          "p90_distance": 0.016667674419495078,
+          "within_0_02": 0.9142857142857143
+        }
+      },
+      "cli_elapsed_seconds": {
+        "patch": 186.6,
+        "fusion": 5.04
+      }
+    }
+  },
+  "views": {
+    "old": [
+      "img_0054_DSC_1233.jpg",
+      "img_0055_DSC_1234.jpg",
+      "img_0056_DSC_1235.jpg",
+      "img_0057_DSC_1236.jpg",
+      "img_0058_DSC_1237.jpg",
+      "img_0059_DSC_1238.jpg",
+      "img_0060_DSC_1239.jpg",
+      "img_0061_DSC_1240.jpg",
+      "img_0062_DSC_1241.jpg",
+      "img_0063_DSC_1242.jpg",
+      "img_0064_DSC_1243.jpg"
+    ],
+    "new": [
+      "new_DSC_1290.jpg",
+      "new_DSC_1291.jpg",
+      "new_DSC_1292.jpg"
+    ],
+    "holdout": [
+      "new_DSC_1289.jpg",
+      "new_DSC_1293.jpg"
+    ]
+  },
+  "parent_holdout_sparse_landmark_proxy": {
+    "new_DSC_1289.jpg": {
+      "landmarks": 37,
+      "median_distance": 0.010967142019723333,
+      "p90_distance": 0.03339460666048297,
+      "within_0_02": 0.8378378378378378
+    },
+    "new_DSC_1293.jpg": {
+      "landmarks": 35,
+      "median_distance": 0.009995251048909864,
+      "p90_distance": 0.018564989537328845,
+      "within_0_02": 0.9142857142857143
+    }
+  },
+  "new_support": "two new-view geometric depths within relative 1.2%; not held-out ground truth",
+  "registration": {
+    "base_images": 100,
+    "registered_images": 110,
+    "old_rotation_and_translation_unchanged": true
+  },
+  "photo_sha256": {
+    "img_0054_DSC_1233.jpg": "230e9960baa9f6ceb307cfad2bae15287b970dd8e1aa78859542649350cad896",
+    "img_0055_DSC_1234.jpg": "b4a8964a476657c7131b1e71685c2a40d804dbf5282f3117ae009fd7d80f30f9",
+    "img_0056_DSC_1235.jpg": "f383acd229f477d43f41c02bb5f7174ba6e5a924572083a6b9766e5fdeeecb96",
+    "img_0057_DSC_1236.jpg": "30cb8c28ac8e0d6bb2fba7edb8ca25262fc5ca872f81371e3c6ac5293f3787cf",
+    "img_0058_DSC_1237.jpg": "2dd2ff4fc069740fbd25572144cebd7e3c3a6974e8747349fcb35c01f66cbe66",
+    "img_0059_DSC_1238.jpg": "595d7f212564c7948f4ceafae1591899f92b6ce16c01721b45e39b446db9082f",
+    "img_0060_DSC_1239.jpg": "5ca8510e653e0718d91dc82f7a469762e7898d950e54683df7f4e7d579204fd4",
+    "img_0061_DSC_1240.jpg": "2f62230e84efefb5ad2e57827420908ba9b4b525c7bd1fd0ceb0bce2dbeab4a0",
+    "img_0062_DSC_1241.jpg": "2c4ddbf63af55e45460291e216a32846585207dfd5158d82bd561fda561dd159",
+    "img_0063_DSC_1242.jpg": "64bddd1ce49264ef66832e4f6a6df33b1279a4acf9cb5177db89960d7048296e",
+    "img_0064_DSC_1243.jpg": "ff3187ca75850e67c8e81f77215ac0567294a8c39604d9a59638516bdbb3454d",
+    "new_DSC_1290.jpg": "6144a4e3a1d337eb4c2ddf443d9bef333458e545ec3c6a96198618568b73cb95",
+    "new_DSC_1291.jpg": "f637c0d85f55cd3a4cc38fcd39c997681fb625a91a7b3f3690882c7ae5400e0a",
+    "new_DSC_1292.jpg": "ee68ce12721a1d6504fe5ed5c7c12eefdb139b98109b8cecb397027e9530e913",
+    "new_DSC_1289.jpg": "5df1f090f1ba817b0370061f9e6c24202b75f555e8ed44774b306c7ea2ae4691",
+    "new_DSC_1293.jpg": "af7e454534a54c867ab58bf5931e260b4829c85568e62806f9f0852e9a9d9c7d"
+  },
+  "parent_mesh_sha256": "c978fa7baa77a8c3efe809eec88acf9bc80fbdaeac5e5079525db87b89f42ee9"
+}

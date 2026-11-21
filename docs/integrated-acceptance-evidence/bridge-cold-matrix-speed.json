@@ -1,0 +1,204 @@
+{
+  "scene": "bridge",
+  "images": 100,
+  "total_bytes": 921227860,
+  "preset": "speed",
+  "matcher": "auto",
+  "dense_max_image_size": 3000,
+  "arms": {
+    "dual": [
+      {
+        "run": 1,
+        "gpu_index": "0,1",
+        "job_id": 24,
+        "status": "CANCELLED",
+        "wall_s": 904.07,
+        "stages_s": {
+          "IMAGE_VALIDATION": 5.29,
+          "FEATURE_EXTRACTION": 23.27,
+          "FEATURE_MATCHING": 76.7,
+          "SPARSE_RECONSTRUCTION": 424.71,
+          "IMAGE_UNDISTORTION": 31.21
+        },
+        "resolved": {
+          "max_features": 8192,
+          "poisson_depth": 10,
+          "matcher": "exhaustive",
+          "dense_max_image_size": 3000,
+          "patchmatch_iterations": 3,
+          "fusion_threads": 16,
+          "texture_start_scale": 0.125,
+          "gpu_index": "0,1",
+          "poisson_threads": 4,
+          "poisson_trim": 10,
+          "colmap_bin": "/data/home/2024090904028/.conda/envs/colmap-gpu/bin/colmap",
+          "texturer_bin": "/tmp/recon-colmap.oUTYXW/env/bin/colmap",
+          "use_gpu": true
+        },
+        "capability": {
+          "colmap_has_cuda": true,
+          "requested_gpu_index": [
+            0,
+            1
+          ],
+          "visible_gpu_count": 2,
+          "all_requested_gpus_visible": true
+        },
+        "error": null,
+        "artifacts": [],
+        "uploaded": {
+          "count": 100,
+          "bytes": 921227860
+        }
+      },
+      {
+        "run": 2,
+        "gpu_index": "0,1",
+        "job_id": 26,
+        "status": "CANCELLED",
+        "wall_s": 4436.27,
+        "stages_s": {
+          "IMAGE_VALIDATION": 10.89,
+          "FEATURE_EXTRACTION": 51.92,
+          "FEATURE_MATCHING": 147.25,
+          "SPARSE_RECONSTRUCTION": 465.69,
+          "IMAGE_UNDISTORTION": 31.05,
+          "DENSE_RECONSTRUCTION": 3414.93
+        },
+        "resolved": {
+          "max_features": 8192,
+          "poisson_depth": 10,
+          "matcher": "exhaustive",
+          "dense_max_image_size": 3000,
+          "patchmatch_iterations": 3,
+          "fusion_threads": 16,
+          "texture_start_scale": 0.125,
+          "gpu_index": "0,1",
+          "poisson_threads": 4,
+          "poisson_trim": 10,
+          "colmap_bin": "/data/home/2024090904028/.conda/envs/colmap-gpu/bin/colmap",
+          "texturer_bin": "/tmp/recon-colmap.oUTYXW/env/bin/colmap",
+          "use_gpu": true
+        },
+        "capability": {
+          "colmap_has_cuda": true,
+          "requested_gpu_index": [
+            0,
+            1
+          ],
+          "visible_gpu_count": 2,
+          "all_requested_gpus_visible": true
+        },
+        "error": "任务已被用户取消",
+        "artifacts": [],
+        "uploaded": {
+          "count": 100,
+          "bytes": 921227860
+        }
+      },
+      {
+        "run": 3,
+        "gpu_index": "0,1",
+        "job_id": 27,
+        "status": "SUCCEEDED",
+        "wall_s": 4487.63,
+        "stages_s": {
+          "IMAGE_VALIDATION": 5.23,
+          "FEATURE_EXTRACTION": 23.77,
+          "FEATURE_MATCHING": 79.92,
+          "SPARSE_RECONSTRUCTION": 542.24,
+          "IMAGE_UNDISTORTION": 39.27,
+          "DENSE_RECONSTRUCTION": 3370.88,
+          "STEREO_FUSION": 144.04,
+          "MESHING": 56.19,
+          "TEXTURING": 215.58,
+          "EXPORTING": 3.79
+        },
+        "resolved": {
+          "max_features": 8192,
+          "poisson_depth": 10,
+          "matcher": "exhaustive",
+          "dense_max_image_size": 3000,
+          "patchmatch_iterations": 3,
+          "fusion_threads": 16,
+          "texture_start_scale": 0.125,
+          "gpu_index": "0,1",
+          "poisson_threads": 4,
+          "poisson_trim": 10,
+          "colmap_bin": "/data/home/2024090904028/.conda/envs/colmap-gpu/bin/colmap",
+          "texturer_bin": "/tmp/recon-colmap.oUTYXW/env/bin/colmap",
+          "use_gpu": true
+        },
+        "capability": {
+          "colmap_has_cuda": true,
+          "requested_gpu_index": [
+            0,
+            1
+          ],
+          "visible_gpu_count": 2,
+          "all_requested_gpus_visible": true
+        },
+        "error": null,
+        "artifacts": [
+          {
+            "model_id": 44,
+            "type": "web",
+            "format": "glb",
+            "vertices": 280913,
+            "faces": 412997,
+            "points": 0,
+            "sha256": "2765f6241c8fe9efdca7e3a71f53f3d29982daf870a853e78139b108ead7d416"
+          },
+          {
+            "model_id": 43,
+            "type": "web",
+            "format": "glb",
+            "vertices": 212069,
+            "faces": 412997,
+            "points": 0,
+            "sha256": "6274b95763ab16bb7c97394601ecb897a90a1db804f135634b0ee4b375cd5163"
+          },
+          {
+            "model_id": 42,
+            "type": "mesh",
+            "format": "ply",
+            "vertices": 212069,
+            "faces": 412997,
+            "points": 0,
+            "sha256": "eb64d0ad2b311c6b7e302d03e18c833f66dd3ae56609eec7acfc3de7d7f998fc"
+          },
+          {
+            "model_id": 41,
+            "type": "dense_pointcloud",
+            "format": "ply",
+            "vertices": 4797788,
+            "faces": 0,
+            "points": 4797788,
+            "sha256": "6f2880eae3ce10e2561912b8ead5da785a914017efbeef46aa8f04e8076a55b5"
+          },
+          {
+            "model_id": 40,
+            "type": "sparse_pointcloud",
+            "format": "ply",
+            "vertices": 56384,
+            "faces": 0,
+            "points": 56384,
+            "sha256": "c329851e605fb231c5e012a48c02833541df03b21287c9f07632b5d98939c6f5"
+          }
+        ],
+        "uploaded": {
+          "count": 100,
+          "bytes": 921227860
+        }
+      }
+    ]
+  },
+  "summary": {
+    "dual": {
+      "median_dense_s": 3370.88,
+      "median_wall_s": 4487.63,
+      "succeeded": 1,
+      "total": 3
+    }
+  }
+}

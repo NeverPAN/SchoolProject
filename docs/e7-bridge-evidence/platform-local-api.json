@@ -1,0 +1,291 @@
+{
+  "version": "local-review-f1bae6ba0198",
+  "jobs": {
+    "14": {
+      "state": "SUCCEEDED",
+      "start": "2026-11-20T15:11:05.918096",
+      "finish": "2026-11-20T15:11:18.878815",
+      "engine": null,
+      "events": [
+        {
+          "id": 1,
+          "stage": "LOCAL_UPDATE",
+          "status": "completed",
+          "started_at": "2026-11-20T15:11:06.347593",
+          "finished_at": "2026-11-20T15:11:18.870876",
+          "duration_ms": 12523,
+          "message": "已导出已有网格选区（非局部重建）"
+        }
+      ],
+      "model": {
+        "id": 27,
+        "project_id": 1,
+        "job_id": 14,
+        "model_type": "mesh",
+        "format": "glb",
+        "file_size": 8073180,
+        "vertex_count": 3550,
+        "face_count": 5223,
+        "point_count": 0,
+        "stage_origin": "LOCAL_REGION",
+        "created_at": "2026-11-20T15:11:18.885566"
+      },
+      "manifest": {
+        "job_id": 14,
+        "pipeline_mode": "local_update",
+        "note": "阶段8原型：区域提取（非局部重建）；真正的局部重建可行性研究见 docs/dev-summary/10",
+        "region_id": 1,
+        "target_model_id": 24,
+        "resolved_params": {
+          "bbox_min": [
+            6.48,
+            -0.75,
+            2.46
+          ],
+          "bbox_max": [
+            7.95,
+            -0.38,
+            3.1700000000000004
+          ]
+        },
+        "finished_at": "2026-11-20T15:11:18.878815"
+      },
+      "log_nonempty": true
+    },
+    "15": {
+      "state": "SUCCEEDED",
+      "start": "2026-11-20T15:13:41.722914",
+      "finish": "2026-11-20T15:17:13.084397",
+      "engine": "COLMAP 3.13.0 -- Structure-from-Motion and Multi-View Stereo",
+      "events": [
+        {
+          "id": 47,
+          "stage": "IMAGE_VALIDATION",
+          "status": "completed",
+          "started_at": "2026-11-20T15:13:41.876375",
+          "finished_at": "2026-11-20T15:13:43.388606",
+          "duration_ms": 1512,
+          "message": null
+        },
+        {
+          "id": 48,
+          "stage": "IMAGE_UNDISTORTION",
+          "status": "completed",
+          "started_at": "2026-11-20T15:13:43.399603",
+          "finished_at": "2026-11-20T15:13:47.989318",
+          "duration_ms": 4589,
+          "message": null
+        },
+        {
+          "id": 49,
+          "stage": "DENSE_RECONSTRUCTION",
+          "status": "completed",
+          "started_at": "2026-11-20T15:13:48.006314",
+          "finished_at": "2026-11-20T15:16:55.507646",
+          "duration_ms": 187501,
+          "message": null
+        },
+        {
+          "id": 50,
+          "stage": "STEREO_FUSION",
+          "status": "completed",
+          "started_at": "2026-11-20T15:16:55.524199",
+          "finished_at": "2026-11-20T15:17:11.950838",
+          "duration_ms": 16426,
+          "message": null
+        },
+        {
+          "id": 51,
+          "stage": "EXPORTING",
+          "status": "completed",
+          "started_at": "2026-11-20T15:17:11.962148",
+          "finished_at": "2026-11-20T15:17:12.739130",
+          "duration_ms": 776,
+          "message": null
+        }
+      ],
+      "model": {
+        "id": 28,
+        "project_id": 1,
+        "job_id": 15,
+        "model_type": "dense_pointcloud",
+        "format": "ply",
+        "file_size": 114988186,
+        "vertex_count": 4258813,
+        "face_count": 0,
+        "point_count": 4258813,
+        "stage_origin": "LOCAL_POINT_FUSION",
+        "created_at": "2026-11-20T15:17:13.090819"
+      },
+      "manifest": {
+        "job_id": 15,
+        "pipeline_mode": "local_reconstruct",
+        "engine_version": "COLMAP 3.13.0 -- Structure-from-Motion and Multi-View Stereo",
+        "target_model_id": 24,
+        "parent_model_id": 24,
+        "region_id": 1,
+        "geometry": "pointcloud_only",
+        "note": "预注册相机、整幅视图 GPU 重建；只补充核心区点云，不替换父模型或生成网格。",
+        "inputs_sha": "2afef323eb2b3509e18197e5061c7e97d4342589ec798190d3299c71a542627c",
+        "seed_sha": "2f25bb6f80272f048bf272ed9e1d3dc93a93918ebe5eeb48e5450dd4a71a0459",
+        "parent_model_sha256": "a5d4ca3a5c87c9deeb3bc78c72554bf652474887adb324c8d231857696964f9d",
+        "parent_cloud_sha256": "f96be7d6b2e9c9a0c8d7c9839672bb71f8294109db2124e44cdeb46739460f37",
+        "sparse_sha256": {
+          "rigs.bin": "3e0480c890e6ccd659a062df110c3f3ca8839a1ae8d17d5a96eb87676f83035e",
+          "points3D.bin": "d2cd01cae7668ab1213cf2b6ea2decc695499419aabbeaeebaf31594cf9ff695",
+          "frames.bin": "a5834c15628df60949ab6494126da3574a527d0931abc14b96f0fc6e5abc5e31",
+          "cameras.bin": "2274e8bfdca45928d0581fb14048c0a0f1b732cd3c7f5bda34ee32675a4ac81d",
+          "images.bin": "75f019ff63d6632c6a16b5fb24cd3c3c80bc2814f3fb11a0cf606e06280af60a"
+        },
+        "view_sha256": {
+          "img_0054_DSC_1233.jpg": "230e9960baa9f6ceb307cfad2bae15287b970dd8e1aa78859542649350cad896",
+          "img_0055_DSC_1234.jpg": "b4a8964a476657c7131b1e71685c2a40d804dbf5282f3117ae009fd7d80f30f9",
+          "img_0056_DSC_1235.jpg": "f383acd229f477d43f41c02bb5f7174ba6e5a924572083a6b9766e5fdeeecb96",
+          "img_0057_DSC_1236.jpg": "30cb8c28ac8e0d6bb2fba7edb8ca25262fc5ca872f81371e3c6ac5293f3787cf",
+          "img_0058_DSC_1237.jpg": "2dd2ff4fc069740fbd25572144cebd7e3c3a6974e8747349fcb35c01f66cbe66",
+          "img_0059_DSC_1238.jpg": "595d7f212564c7948f4ceafae1591899f92b6ce16c01721b45e39b446db9082f",
+          "img_0060_DSC_1239.jpg": "5ca8510e653e0718d91dc82f7a469762e7898d950e54683df7f4e7d579204fd4",
+          "img_0061_DSC_1240.jpg": "2f62230e84efefb5ad2e57827420908ba9b4b525c7bd1fd0ceb0bce2dbeab4a0",
+          "img_0062_DSC_1241.jpg": "2c4ddbf63af55e45460291e216a32846585207dfd5158d82bd561fda561dd159",
+          "img_0063_DSC_1242.jpg": "64bddd1ce49264ef66832e4f6a6df33b1279a4acf9cb5177db89960d7048296e",
+          "img_0064_DSC_1243.jpg": "ff3187ca75850e67c8e81f77215ac0567294a8c39604d9a59638516bdbb3454d",
+          "new_DSC_1290.jpg": "6144a4e3a1d337eb4c2ddf443d9bef333458e545ec3c6a96198618568b73cb95",
+          "new_DSC_1291.jpg": "f637c0d85f55cd3a4cc38fcd39c997681fb625a91a7b3f3690882c7ae5400e0a",
+          "new_DSC_1292.jpg": "ee68ce12721a1d6504fe5ed5c7c12eefdb139b98109b8cecb397027e9530e913"
+        },
+        "new_views": {
+          "new_DSC_1290.jpg": 1,
+          "new_DSC_1291.jpg": 2,
+          "new_DSC_1292.jpg": 3
+        },
+        "resolved_params": {
+          "bbox_min": [
+            6.48,
+            -0.75,
+            2.46
+          ],
+          "bbox_max": [
+            7.95,
+            -0.38,
+            3.1700000000000004
+          ],
+          "core_min": [
+            6.510000000000001,
+            -0.72,
+            2.4899999999999998
+          ],
+          "core_max": [
+            7.92,
+            -0.41000000000000003,
+            3.1400000000000006
+          ],
+          "guard_band": 0.03,
+          "min_parent_distance": 0.004,
+          "max_parent_distance": 0.025,
+          "min_new_view_votes": 2,
+          "relative_depth_tolerance": 0.012,
+          "dense_max_image_size": 1600,
+          "patchmatch_iterations": 5,
+          "geom_consistency": true,
+          "gpu_index": "0,1",
+          "fusion_threads": -1
+        },
+        "counts": {
+          "candidate_points_in_core": 940,
+          "new_view_supported_points": 704,
+          "added_points": 543,
+          "parent_points": 4258270
+        },
+        "output_sha256": "57f76cb4574295fc8fbd8c09d1ef7fde586be498863df6783761bdfa183d4988",
+        "finished_at": "2026-11-20T15:17:13.084397"
+      },
+      "log_nonempty": true
+    }
+  },
+  "download_sha256": {
+    "23": "c978fa7baa77a8c3efe809eec88acf9bc80fbdaeac5e5079525db87b89f42ee9",
+    "24": "a5d4ca3a5c87c9deeb3bc78c72554bf652474887adb324c8d231857696964f9d",
+    "27": "77a1a8ee79a13fb7a19fa7079248bda5e433e1ec604ae696c62b0f9ba7ae47f1",
+    "28": "57f76cb4574295fc8fbd8c09d1ef7fde586be498863df6783761bdfa183d4988"
+  },
+  "archives": {
+    "B00": {
+      "job_id": 1,
+      "stages": 10,
+      "logs": 13,
+      "original_run_times": true
+    },
+    "C00": {
+      "job_id": 9,
+      "stages": 10,
+      "logs": 13,
+      "original_run_times": true
+    },
+    "C01": {
+      "job_id": 10,
+      "stages": 10,
+      "logs": 11,
+      "original_run_times": true
+    },
+    "T01": {
+      "job_id": 2,
+      "stages": 1,
+      "logs": 1,
+      "original_run_times": false
+    },
+    "R01": {
+      "job_id": 11,
+      "stages": 2,
+      "logs": 2,
+      "original_run_times": false
+    },
+    "F01": {
+      "job_id": 3,
+      "stages": 1,
+      "logs": 1,
+      "original_run_times": false
+    },
+    "F02": {
+      "job_id": 4,
+      "stages": 1,
+      "logs": 1,
+      "original_run_times": false
+    },
+    "F03": {
+      "job_id": 5,
+      "stages": 1,
+      "logs": 1,
+      "original_run_times": false
+    },
+    "F04": {
+      "job_id": 6,
+      "stages": 1,
+      "logs": 1,
+      "original_run_times": false
+    },
+    "S00": {
+      "job_id": 7,
+      "stages": 2,
+      "logs": 2,
+      "original_run_times": false
+    },
+    "S01": {
+      "job_id": 8,
+      "stages": 2,
+      "logs": 2,
+      "original_run_times": false
+    },
+    "L00": {
+      "job_id": 12,
+      "stages": 2,
+      "logs": 2,
+      "original_run_times": false
+    },
+    "L01": {
+      "job_id": 13,
+      "stages": 2,
+      "logs": 2,
+      "original_run_times": false
+    }
+  }
+}

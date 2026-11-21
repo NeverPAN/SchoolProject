@@ -1,0 +1,193 @@
+{
+  "scene": "south",
+  "mode": "cold",
+  "arm": "single (clean)",
+  "note": "clean single arm: job16 是污染臂中唯一由真单卡 Worker 执行的轮次；clean-1/2 在验证过 COLMAP_GPU_INDEX=0 的 Worker 上运行",
+  "images": 36,
+  "preset": "standard",
+  "dense_max_image_size": 2000,
+  "runs": [
+    {
+      "run": "clean-0 (原污染臂中唯一真单卡轮)",
+      "gpu_index": "0",
+      "job_id": 16,
+      "status": "SUCCEEDED",
+      "wall_s": 1772.4,
+      "stages_s": {
+        "IMAGE_VALIDATION": 0.69,
+        "FEATURE_EXTRACTION": 4.05,
+        "FEATURE_MATCHING": 5.24,
+        "SPARSE_RECONSTRUCTION": 35.33,
+        "IMAGE_UNDISTORTION": 3.52,
+        "DENSE_RECONSTRUCTION": 1538.91,
+        "STEREO_FUSION": 89.92,
+        "MESHING": 33.09,
+        "TEXTURING": 56.42,
+        "EXPORTING": 3.88
+      },
+      "resolved": {
+        "gpu_index": "0"
+      }
+    },
+    {
+      "run": "clean-1",
+      "gpu_index": "0",
+      "job_id": 18,
+      "status": "SUCCEEDED",
+      "wall_s": 1751.42,
+      "stages_s": {
+        "IMAGE_VALIDATION": 0.8,
+        "FEATURE_EXTRACTION": 3.7,
+        "FEATURE_MATCHING": 5.42,
+        "SPARSE_RECONSTRUCTION": 36.45,
+        "IMAGE_UNDISTORTION": 3.5,
+        "DENSE_RECONSTRUCTION": 1539.66,
+        "STEREO_FUSION": 64.2,
+        "MESHING": 33.47,
+        "TEXTURING": 55.62,
+        "EXPORTING": 4.17
+      },
+      "resolved": {
+        "max_features": 8192,
+        "poisson_depth": 10,
+        "matcher": "sequential",
+        "dense_max_image_size": 2000,
+        "patchmatch_iterations": 5,
+        "fusion_threads": -1,
+        "texture_start_scale": 0.5,
+        "gpu_index": "0",
+        "poisson_threads": 4,
+        "poisson_trim": 10,
+        "colmap_bin": "/data/home/2024090904028/.conda/envs/colmap-gpu/bin/colmap",
+        "texturer_bin": "/tmp/recon-colmap.oUTYXW/env/bin/colmap",
+        "use_gpu": true
+      },
+      "capability": {
+        "colmap_has_cuda": true,
+        "requested_gpu_index": [
+          0
+        ],
+        "visible_gpu_count": 2,
+        "all_requested_gpus_visible": true
+      },
+      "error": null,
+      "artifacts": [
+        {
+          "model_id": 41,
+          "type": "web",
+          "faces": 990624,
+          "points": 0
+        },
+        {
+          "model_id": 40,
+          "type": "web",
+          "faces": 990624,
+          "points": 0
+        },
+        {
+          "model_id": 39,
+          "type": "mesh",
+          "faces": 990624,
+          "points": 0
+        },
+        {
+          "model_id": 38,
+          "type": "dense_pointcloud",
+          "faces": 0,
+          "points": 1669605
+        },
+        {
+          "model_id": 37,
+          "type": "sparse_pointcloud",
+          "faces": 0,
+          "points": 16907
+        }
+      ],
+      "created": "2026-11-20T23:25:38.208890"
+    },
+    {
+      "run": "clean-2",
+      "gpu_index": "0",
+      "job_id": 19,
+      "status": "SUCCEEDED",
+      "wall_s": 1752.08,
+      "stages_s": {
+        "IMAGE_VALIDATION": 0.7,
+        "FEATURE_EXTRACTION": 3.45,
+        "FEATURE_MATCHING": 5.5,
+        "SPARSE_RECONSTRUCTION": 35.67,
+        "IMAGE_UNDISTORTION": 3.54,
+        "DENSE_RECONSTRUCTION": 1541.81,
+        "STEREO_FUSION": 62.79,
+        "MESHING": 32.94,
+        "TEXTURING": 56.51,
+        "EXPORTING": 3.9
+      },
+      "resolved": {
+        "max_features": 8192,
+        "poisson_depth": 10,
+        "matcher": "sequential",
+        "dense_max_image_size": 2000,
+        "patchmatch_iterations": 5,
+        "fusion_threads": -1,
+        "texture_start_scale": 0.5,
+        "gpu_index": "0",
+        "poisson_threads": 4,
+        "poisson_trim": 10,
+        "colmap_bin": "/data/home/2024090904028/.conda/envs/colmap-gpu/bin/colmap",
+        "texturer_bin": "/tmp/recon-colmap.oUTYXW/env/bin/colmap",
+        "use_gpu": true
+      },
+      "capability": {
+        "colmap_has_cuda": true,
+        "requested_gpu_index": [
+          0
+        ],
+        "visible_gpu_count": 2,
+        "all_requested_gpus_visible": true
+      },
+      "error": null,
+      "artifacts": [
+        {
+          "model_id": 46,
+          "type": "web",
+          "faces": 991957,
+          "points": 0
+        },
+        {
+          "model_id": 45,
+          "type": "web",
+          "faces": 991957,
+          "points": 0
+        },
+        {
+          "model_id": 44,
+          "type": "mesh",
+          "faces": 991957,
+          "points": 0
+        },
+        {
+          "model_id": 43,
+          "type": "dense_pointcloud",
+          "faces": 0,
+          "points": 1669771
+        },
+        {
+          "model_id": 42,
+          "type": "sparse_pointcloud",
+          "faces": 0,
+          "points": 16911
+        }
+      ],
+      "created": "2026-11-20T23:54:53.470630"
+    }
+  ],
+  "summary": {
+    "median_dense_s": 1539.66,
+    "succeeded": 3,
+    "total": 3,
+    "dual_median_dense_s": 783.14,
+    "dense_speedup_single_over_dual": 0.509,
+    "note": "speedup = 单卡稠密中位 / 双卡稠密中位；单卡 3 轮 = job16（原污染臂中唯一真单卡轮，稠密 1538.91s）+ clean-1（1539.66s）+ clean-2（1541.81s），三轮高度一致"
+  }
+}

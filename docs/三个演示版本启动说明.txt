@@ -1,0 +1,47 @@
+图片三维重建系统：三个演示版本启动与恢复说明
+
+原则：三套环境的代码、前端 dist、数据库和队列不可混用。下列命令在获授权的服务器容器中执行，访问走已有 VPN/SSH 隧道，只监听回环。不要把新环境迁移应用到旧服务数据库。发现端口已监听时先查健康状态，勿重复启动或停止在用服务。所有口令、JWT 密钥和 Redis 凭据只留在授权环境，不写入本文。
+
+速查：账号、访问地址、重建质量
+
+  本机浏览器地址           容器内目标             测试账号          用途与质量
+  http://127.0.0.1:18000/  127.0.0.1:8000       e2e_real6         第一阶段旧演示；项目 #7，40 张照片，约 390 万稠密点、98,129 面；照片贴图模型 #6 是离线演示版本。
+  http://127.0.0.1:18082/  127.0.0.1:18081      e2e_user          双卡 3000 px 历史结果；项目 #2 模型 #59（约 484 万融合点、411,827 面），项目 #1 模型 #54 是追加照片后的结果。
+  http://127.0.0.1:18439/  127.0.0.1:18438      stage8_reviewer   阶段 8 候选；源模型 27,041 面，API 实测区域结果 9,465 面。普通重建为 Mock，不用于对照 GPU 重建质量。
+
+  上述三个账号已与对应环境的密码哈希核对。含完整启动指令和明文测试口令的同名私有副本：
+  /data/home/2024090904028/reconstration/.demo-private/三个演示版本启动说明.txt
+  历史自动验收账号 phase2_a3e7c929 属于 18082，账号仍存在，但无可核实的现用口令；日常请用 e2e_user。用 SSH 转发后才在本机访问以上地址，127.0.0.1 不是服务器公网 IP。
+
+一、第一阶段旧演示：本机 18000 → 容器 8000
+- 当前老 API/Worker 仍运行。进程的原工作目录显示已删除，未能确认原运行进程的精确提交和前端构建；不能承诺原样重启。现有入口不能验收区域提取。
+- 恢复时选第一阶段发布的代码参考 5d2c352（访问说明见 bb0f85d）。在独立目录检出，不替换日常源码；按该版本 README 安装 Python 依赖、在 frontend 运行 npm ci 和 npm run build。使用 CUDA COLMAP 3.13.0 才能复现 GPU 重建。
+- 已知原数据设置：SQLite /var/lib/recon-data/recon.db，本地 scratch /var/lib/recon-data/scratch，项目仓库下 data/ 持久资产；原队列以原 .env 的 REDIS_URL 为准。新建独立副本时，用 SQLite 在线备份把库复制出来，并备份图片、模型与清单；库中部分资产路径是绝对路径，恢复到新目录须在副本核对/重映射，不能指向正在使用的旧资产。保留原配置的私有备份；未经验证不拿现库降级迁移。
+
+二、双卡模型演示：本机 18082 → 容器 18081
+- 当前保持运行；项目 2 模型 #59 是双卡 3000 px 的历史计算产物，不等于 API/前端已全部升级。当前 Worker 为 COLMAP_GPU_INDEX=0,1、COLMAP_DENSE_MAX_IMAGE_SIZE=3000；原 API 进程早于 Worker，运行中没有区域提取接口。
+- 历史存储目录 /tmp/phase2-run.EnRwa6：db.sqlite、data/ 和 scratch/；Redis 127.0.0.1:16389/0。/tmp 不是长期备份。恢复前用 SQLite 在线备份及文件备份保存此环境（包含原始图片和模型），保存获授权的配置与引擎构建。不能只保存 Git。双卡重建需两卡对 Worker 可见；CUDA COLMAP 3.13.0 与 CPU 贴图 COLMAP 4.2.1 路径分开配置，后者原来位于 /tmp，重启前验证二进制是否仍存在。
+- 历史 API 与 Worker 不是同版。若目标是恢复同能力而非重现混搭，可在独立目录选 7f8832b 作为可追溯参考，构建其前端、设置同套版本的 API/Worker，拿数据库/文件副本按该提交的迁移验证后再决定是否接管 18081。该参考提交不代表当前老 API 的精确源码。模型恢复后先核验 #59 能查看、下载，再验收新任务；不要复用不匹配的检查点。
+
+旧版共用的启动步骤（仅在独立验证副本或批准的停机恢复窗口操作）：
+  1) 用 git worktree add --detach <独立目录> <上述参考提交>，依选定提交安装依赖并构建 frontend/dist。
+  2) 在新建的私有 .env 中设置 DATABASE_URL、DATA_DIR、SCRATCH_DIR、REDIS_URL、SECRET_KEY、RECON_MODE、RECON_USE_GPU、COLMAP_BIN；第二套另设 COLMAP_TEXTURER_BIN、COLMAP_GPU_INDEX=0,1、COLMAP_DENSE_MAX_IMAGE_SIZE=3000。
+  3) 检查配置指向正确环境，准备批准的 Redis 队列；避免与另一环境共享 Redis DB/队列。在选定版本的 backend 目录中用其虚拟环境执行 python -m alembic upgrade head（只针对备份复本或经过批准的目标库）。
+  4) 在干净的两个终端中设置相同的绝对 RECON_ENV_FILE，再分别运行：
+       .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port <8000 或 18081>
+       .venv/bin/python -m app.workers.rq_worker
+  5) 请求 /api/v1/health 并核对 Worker 日志和模型下载；不要仅凭健康接口宣布版本恢复成功。备份和恢复细节见 docs/deployment.md。
+
+三、独立阶段 8 验收：本机 18439 → 容器 18438
+- 版本：stage8-rc-3c7f6ebda83b，冻结了包含未提交修改的候选后端与前端构建，不等于 Git HEAD 7f8832b。/version.json 提供完整运行包指纹和基准提交。
+- 冻结包目录 R=/data/home/2024090904028/reconstration/stage8-acceptance.JO2Bei，独立 SQLite app.db、Redis 127.0.0.1:16438/0、data/、scratch/、runtime.env 与前端构建。关闭 GPU，普通重建为 Mock；区域提取是真实 RQ Worker 对现有真实网格执行。无需把历史演示资产改写或迁移过来。
+- 该实例已启动。将来重新启动原包时，先确认对应端口未在监听；不要重复启动。使用空闲且获授权的 Redis；默认无持久化，重启不会恢复未完成的队列。请在队列为空时安排重启并保留 SQLite 及产物。在三个终端分别执行（每个终端设置 R）：
+       redis-server --bind 127.0.0.1 --port 16438 --save '' --appendonly no --dir "$R"
+       cd "$R/backend"; export RECON_ENV_FILE="$R/runtime.env"; PY=$(<"$R/python-path"); "$PY" -m uvicorn app.main:app --host 127.0.0.1 --port 18438
+       cd "$R/backend"; export RECON_ENV_FILE="$R/runtime.env"; PY=$(<"$R/python-path"); "$PY" -m app.workers.rq_worker
+  使用干净终端，避免环境变量覆盖 runtime.env。若换服务器或虚拟环境路径失效，先按依赖锁重新准备运行环境并核对版本指纹。若搬迁存储，不直接复用 SQLite 中失效的绝对路径。不要覆盖冻结包内的源码或 dist；新变更另建候选和端口。
+- SSH（本机终端，保留原有 -p / -J 参数，SSH 入口须到服务所在网络命名空间）：
+       ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:18439:127.0.0.1:18438 <容器 SSH 别名>
+  旧入口同理：-L 127.0.0.1:18000:127.0.0.1:8000；-L 127.0.0.1:18082:127.0.0.1:18081。
+- 浏览器访问 http://127.0.0.1:18439/version.json 核对版本，打开首页，用专用帐号 stage8_reviewer 登录；口令由服务器有权限的成员从 R/test-password 安全读取，不在报告公开。项目 1 源模型 #1 是 ETH3D Bridge 真实网格（27,041 面）；#2 是本轮 API 验收的提取结果（9,465 面）。进入 #1→框选区域→拖拽一块明显有表面的区域→创建区域提取任务→查看任务→返回项目下载结果。先试一次取消，应不创建任务。结果应标为区域提取，源模型仍可下载。
+- 实测：HTTP API + Redis/RQ 的真实网格提取和哈希校验已通过，见 docs/stage8-evidence/real-mesh-api.json；该证据不等于在此地址完成了浏览器操作。网页验收需具备浏览器工具的环境或由组员按上面的步骤复验。此次未替换 18000/18082。

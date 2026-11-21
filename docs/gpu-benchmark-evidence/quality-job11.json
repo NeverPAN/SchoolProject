@@ -1,0 +1,175 @@
+{
+  "work_scale": 1000,
+  "images": 12,
+  "point_radius": 2.0,
+  "support_dilate": 5,
+  "cloud_points": 3748403,
+  "mesh_default_faces": 1300437,
+  "mesh_candidate_faces": 1300437,
+  "aggregate": {
+    "dense_coverage": {
+      "mean": 0.786477829768271,
+      "median": 0.7977987967914438,
+      "p10": 0.6694308823529412,
+      "min": 0.5448997326203209
+    },
+    "mesh_default_coverage": {
+      "mean": 0.6703635249554368,
+      "median": 0.6771911764705882,
+      "p10": 0.4591560160427808,
+      "min": 0.32728475935828877
+    },
+    "mesh_candidate_coverage": {
+      "mean": 0.6703635249554368,
+      "median": 0.6771911764705882,
+      "p10": 0.4591560160427808,
+      "min": 0.32728475935828877
+    },
+    "mesh_default_point_support": {
+      "mean": 0.9915237561468827,
+      "median": 0.9941841137706151,
+      "p10": 0.9815112888038281,
+      "min": 0.9765001177402436
+    },
+    "mesh_default_beyond_points": {
+      "mean": 0.00847624385311752,
+      "median": 0.0058158862293848914,
+      "p10": 0.001838936530967924,
+      "min": 0.0009231686743542925
+    },
+    "mesh_candidate_point_support": {
+      "mean": 0.9915237561468827,
+      "median": 0.9941841137706151,
+      "p10": 0.9815112888038281,
+      "min": 0.9765001177402436
+    },
+    "mesh_candidate_beyond_points": {
+      "mean": 0.00847624385311752,
+      "median": 0.0058158862293848914,
+      "p10": 0.001838936530967924,
+      "min": 0.0009231686743542925
+    }
+  },
+  "per_camera": [
+    {
+      "name": "img_0000_P1180141.jpg",
+      "dense_coverage": 0.5448997326203209,
+      "mesh_default_coverage": 0.32728475935828877,
+      "mesh_candidate_coverage": 0.32728475935828877,
+      "mesh_default_point_support": 0.9990768313256457,
+      "mesh_default_beyond_points": 0.0009231686743542925,
+      "mesh_candidate_point_support": 0.9990768313256457,
+      "mesh_candidate_beyond_points": 0.0009231686743542925
+    },
+    {
+      "name": "img_0003_P1180144.jpg",
+      "dense_coverage": 0.6981189839572193,
+      "mesh_default_coverage": 0.45620989304812837,
+      "mesh_candidate_coverage": 0.45620989304812837,
+      "mesh_default_point_support": 0.9984292810151064,
+      "mesh_default_beyond_points": 0.0015707189848935515,
+      "mesh_candidate_point_support": 0.9984292810151064,
+      "mesh_candidate_beyond_points": 0.0015707189848935515
+    },
+    {
+      "name": "img_0006_P1180147.jpg",
+      "dense_coverage": 0.714807486631016,
+      "mesh_default_coverage": 0.4996042780748663,
+      "mesh_candidate_coverage": 0.4996042780748663,
+      "mesh_default_point_support": 0.9765001177402436,
+      "mesh_default_beyond_points": 0.023499882259756386,
+      "mesh_candidate_point_support": 0.9765001177402436,
+      "mesh_candidate_beyond_points": 0.023499882259756386
+    },
+    {
+      "name": "img_0010_P1180151.jpg",
+      "dense_coverage": 0.7107473262032086,
+      "mesh_default_coverage": 0.5086189839572193,
+      "mesh_candidate_coverage": 0.5086189839572193,
+      "mesh_default_point_support": 0.9806595925319427,
+      "mesh_default_beyond_points": 0.019340407468057312,
+      "mesh_candidate_point_support": 0.9806595925319427,
+      "mesh_candidate_beyond_points": 0.019340407468057312
+    },
+    {
+      "name": "img_0013_P1180154.jpg",
+      "dense_coverage": 0.6662433155080214,
+      "mesh_default_coverage": 0.4856711229946524,
+      "mesh_candidate_coverage": 0.4856711229946524,
+      "mesh_default_point_support": 0.9957471055543627,
+      "mesh_default_beyond_points": 0.004252894445637274,
+      "mesh_candidate_point_support": 0.9957471055543627,
+      "mesh_candidate_beyond_points": 0.004252894445637274
+    },
+    {
+      "name": "img_0016_P1180157.jpg",
+      "dense_coverage": 0.7385521390374331,
+      "mesh_default_coverage": 0.5671858288770053,
+      "mesh_candidate_coverage": 0.5671858288770053,
+      "mesh_default_point_support": 0.9943383106857904,
+      "mesh_default_beyond_points": 0.005661689314209614,
+      "mesh_candidate_point_support": 0.9943383106857904,
+      "mesh_candidate_beyond_points": 0.005661689314209614
+    },
+    {
+      "name": "img_0020_P1180161.jpg",
+      "dense_coverage": 0.8853970588235294,
+      "mesh_default_coverage": 0.7871965240641712,
+      "mesh_candidate_coverage": 0.7871965240641712,
+      "mesh_default_point_support": 0.9951326629564402,
+      "mesh_default_beyond_points": 0.004867337043559779,
+      "mesh_candidate_point_support": 0.9951326629564402,
+      "mesh_candidate_beyond_points": 0.004867337043559779
+    },
+    {
+      "name": "img_0023_P1180164.jpg",
+      "dense_coverage": 0.8916016042780749,
+      "mesh_default_coverage": 0.8723609625668449,
+      "mesh_candidate_coverage": 0.8723609625668449,
+      "mesh_default_point_support": 0.9904693452827933,
+      "mesh_default_beyond_points": 0.00953065471720667,
+      "mesh_candidate_point_support": 0.9904693452827933,
+      "mesh_candidate_beyond_points": 0.00953065471720667
+    },
+    {
+      "name": "img_0026_P1180167.jpg",
+      "dense_coverage": 0.9179852941176471,
+      "mesh_default_coverage": 0.9038516042780749,
+      "mesh_candidate_coverage": 0.9038516042780749,
+      "mesh_default_point_support": 0.9896831888486735,
+      "mesh_default_beyond_points": 0.010316811151326542,
+      "mesh_candidate_point_support": 0.9896831888486735,
+      "mesh_candidate_beyond_points": 0.010316811151326542
+    },
+    {
+      "name": "img_0030_P1180171.jpg",
+      "dense_coverage": 0.8570454545454546,
+      "mesh_default_coverage": 0.8451229946524064,
+      "mesh_candidate_coverage": 0.8451229946524064,
+      "mesh_default_point_support": 0.9940299168554398,
+      "mesh_default_beyond_points": 0.005970083144560169,
+      "mesh_candidate_point_support": 0.9940299168554398,
+      "mesh_candidate_beyond_points": 0.005970083144560169
+    },
+    {
+      "name": "img_0033_P1180174.jpg",
+      "dense_coverage": 0.9232312834224599,
+      "mesh_default_coverage": 0.9143957219251337,
+      "mesh_candidate_coverage": 0.9143957219251337,
+      "mesh_default_point_support": 0.9950421657153551,
+      "mesh_default_beyond_points": 0.004957834284644896,
+      "mesh_candidate_point_support": 0.9950421657153551,
+      "mesh_candidate_beyond_points": 0.004957834284644896
+    },
+    {
+      "name": "img_0036_P1180177.jpg",
+      "dense_coverage": 0.8891042780748664,
+      "mesh_default_coverage": 0.8768596256684492,
+      "mesh_candidate_coverage": 0.8768596256684492,
+      "mesh_default_point_support": 0.9891765552507963,
+      "mesh_default_beyond_points": 0.010823444749203754,
+      "mesh_candidate_point_support": 0.9891765552507963,
+      "mesh_candidate_beyond_points": 0.010823444749203754
+    }
+  ]
+}

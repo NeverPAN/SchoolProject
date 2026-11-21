@@ -1,0 +1,64 @@
+{
+  "status": "PASS",
+  "task_id": 3,
+  "assets": {
+    "13": {
+      "file": "model.glb",
+      "sha256": "95215b8950178d6835cf3f4fcfc378f336199a8d897aa299fb50530b0e303870",
+      "vertices": 14428,
+      "faces": 27041,
+      "textured_faces": 0,
+      "min": [
+        -1.4243627786636353,
+        -1.3041508197784424,
+        -7.6863694190979
+      ],
+      "max": [
+        1.7033443450927734,
+        0.7248119115829468,
+        6.961568832397461
+      ]
+    },
+    "14": {
+      "file": "model_photo.glb",
+      "sha256": "9d091cba74fa4375bf4c03ab74cfe3bb6c173aa3ed2b0ef6440f9e9045ad25ec",
+      "vertices": 22756,
+      "faces": 27041,
+      "textured_faces": 26741,
+      "min": [
+        -1.4243627786636353,
+        -1.3041508197784424,
+        -7.6863694190979
+      ],
+      "max": [
+        1.7033443450927734,
+        0.7248119115829468,
+        6.961568832397461
+      ]
+    }
+  },
+  "original": {
+    "file": "DSC_1174.JPG",
+    "sha256": "68efc6764138e8264f9f720462aa7db6523b19128e0c0b43fa087f5c1081fa99",
+    "pose_matched": false
+  },
+  "browser": "159.0.8154.6",
+  "viewport": {
+    "width": 1366,
+    "height": 900
+  },
+  "canvas": [
+    1030,
+    740
+  ],
+  "monochrome_foreground_iou": 1.0,
+  "material_pixels_changed": 18375,
+  "orbit_foreground_pixels_changed": 44690,
+  "photo_home_foreground_pixels": 29937,
+  "orbit_reset_pixels_changed": 0,
+  "zoom_foreground_area_ratio": 1.6298894344790726,
+  "zoom_reset_pixels_changed": 0,
+  "page_errors": [],
+  "console_errors": [],
+  "unexpected_fixture_requests": []
+}

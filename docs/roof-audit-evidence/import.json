@@ -1,0 +1,38 @@
+{
+  "project": 1,
+  "experiments": {
+    "R01": {
+      "job": 11,
+      "models": [
+        23,
+        24
+      ],
+      "artifacts": [
+        {
+          "name": "trim-9.ply",
+          "model_id": 23,
+          "sha256": "c978fa7baa77a8c3efe809eec88acf9bc80fbdaeac5e5079525db87b89f42ee9",
+          "source_model_id": null,
+          "bytes": 10173446,
+          "vertex_count": 227743,
+          "face_count": 449617,
+          "point_count": 0
+        },
+        {
+          "name": "model_photo.glb",
+          "model_id": 24,
+          "sha256": "a5d4ca3a5c87c9deeb3bc78c72554bf652474887adb324c8d231857696964f9d",
+          "source_model_id": null,
+          "bytes": 34656672,
+          "vertex_count": 307895,
+          "face_count": 449617,
+          "point_count": 0
+        }
+      ]
+    }
+  },
+  "verified_download_ids": [
+    23,
+    24
+  ]
+}

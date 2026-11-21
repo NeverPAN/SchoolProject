@@ -1,0 +1,242 @@
+{
+  "scene": "south",
+  "mode": "cold",
+  "note": "recovered from DB after API died post-run-3; single-arm rerun with SIGKILL+drain arm-switch protocol",
+  "images": 36,
+  "preset": "standard",
+  "matcher": "auto",
+  "dense_max_image_size": 2000,
+  "arms": {
+    "single": [
+      {
+        "run": 1,
+        "gpu_index": "0",
+        "job_id": 15,
+        "status": "SUCCEEDED",
+        "wall_s": 1009.49,
+        "stages_s": {
+          "IMAGE_VALIDATION": 0.82,
+          "FEATURE_EXTRACTION": 3.62,
+          "FEATURE_MATCHING": 5.2,
+          "SPARSE_RECONSTRUCTION": 35.63,
+          "IMAGE_UNDISTORTION": 3.48,
+          "DENSE_RECONSTRUCTION": 776.78,
+          "STEREO_FUSION": 88.41,
+          "MESHING": 33.77,
+          "TEXTURING": 56.5,
+          "EXPORTING": 3.85
+        },
+        "resolved": {
+          "max_features": 8192,
+          "poisson_depth": 10,
+          "matcher": "sequential",
+          "dense_max_image_size": 2000,
+          "patchmatch_iterations": 5,
+          "fusion_threads": -1,
+          "texture_start_scale": 0.5,
+          "gpu_index": "0",
+          "poisson_threads": 4,
+          "poisson_trim": 10,
+          "colmap_bin": "/data/home/2024090904028/.conda/envs/colmap-gpu/bin/colmap",
+          "texturer_bin": "/tmp/recon-colmap.oUTYXW/env/bin/colmap",
+          "use_gpu": true
+        },
+        "artifacts": [
+          {
+            "model_id": 22,
+            "type": "sparse_pointcloud",
+            "faces": 0,
+            "points": 16908,
+            "sha256": "e40fcd54342d7a02882ebb4d2fe6a029078cb96f94c57c1d523f8569f2878f57"
+          },
+          {
+            "model_id": 23,
+            "type": "dense_pointcloud",
+            "faces": 0,
+            "points": 1669439,
+            "sha256": "819aa0b8be4a77466632168ed77245528ebe74015a15f6d00a02bc24eac6c8cf"
+          },
+          {
+            "model_id": 24,
+            "type": "mesh",
+            "faces": 1009033,
+            "points": 0,
+            "sha256": "e4389afc7db85854a5f464351e18b7cafcb3ee2c23a8eb216bc335365a747db5"
+          },
+          {
+            "model_id": 25,
+            "type": "web",
+            "faces": 1009033,
+            "points": 0,
+            "sha256": "870595d1e9a85f0651f1e3bcbd7a8915b96db0ab77eacfb3c5b8fdfe74ac1fb0"
+          },
+          {
+            "model_id": 26,
+            "type": "web",
+            "faces": 1009033,
+            "points": 0,
+            "sha256": "2f669f7852ac04610b5715a7c84aa33c07838d7cb3d0cc18a6cedb9cb52e73d4"
+          }
+        ]
+      },
+      {
+        "run": 2,
+        "gpu_index": "0",
+        "job_id": 16,
+        "status": "SUCCEEDED",
+        "wall_s": 1772.4,
+        "stages_s": {
+          "IMAGE_VALIDATION": 0.69,
+          "FEATURE_EXTRACTION": 4.05,
+          "FEATURE_MATCHING": 5.24,
+          "SPARSE_RECONSTRUCTION": 35.33,
+          "IMAGE_UNDISTORTION": 3.52,
+          "DENSE_RECONSTRUCTION": 1538.91,
+          "STEREO_FUSION": 89.92,
+          "MESHING": 33.09,
+          "TEXTURING": 56.42,
+          "EXPORTING": 3.88
+        },
+        "resolved": {
+          "max_features": 8192,
+          "poisson_depth": 10,
+          "matcher": "sequential",
+          "dense_max_image_size": 2000,
+          "patchmatch_iterations": 5,
+          "fusion_threads": -1,
+          "texture_start_scale": 0.5,
+          "gpu_index": "0",
+          "poisson_threads": 4,
+          "poisson_trim": 10,
+          "colmap_bin": "/data/home/2024090904028/.conda/envs/colmap-gpu/bin/colmap",
+          "texturer_bin": "/tmp/recon-colmap.oUTYXW/env/bin/colmap",
+          "use_gpu": true
+        },
+        "artifacts": [
+          {
+            "model_id": 27,
+            "type": "sparse_pointcloud",
+            "faces": 0,
+            "points": 16912,
+            "sha256": "cfe006f710ab221f08162907ff52524ba14cc0e97c51ca616fab5acd865db414"
+          },
+          {
+            "model_id": 28,
+            "type": "dense_pointcloud",
+            "faces": 0,
+            "points": 1671271,
+            "sha256": "d4a965e33b84ef80f22fe35637f3856578fc5daabe168d8d9fcaff48f5a541e3"
+          },
+          {
+            "model_id": 29,
+            "type": "mesh",
+            "faces": 1020570,
+            "points": 0,
+            "sha256": "c28072bc9af4b85b969d7869c2b4f0707c0712ee6832bd58a183aafe99c2e35b"
+          },
+          {
+            "model_id": 30,
+            "type": "web",
+            "faces": 1020570,
+            "points": 0,
+            "sha256": "88fb3d9a1337ad698b6b269c8119a9a4a629c91972572cd47dc1d1aacbb9a8ab"
+          },
+          {
+            "model_id": 31,
+            "type": "web",
+            "faces": 1020570,
+            "points": 0,
+            "sha256": "e62f150d14f6adc185216787bd7f7063fc2ef69762b4c22b6ba884c05d76b7e3"
+          }
+        ]
+      },
+      {
+        "run": 3,
+        "gpu_index": "0",
+        "job_id": 17,
+        "status": "SUCCEEDED",
+        "wall_s": 978.49,
+        "stages_s": {
+          "IMAGE_VALIDATION": 0.7,
+          "FEATURE_EXTRACTION": 3.47,
+          "FEATURE_MATCHING": 5.0,
+          "SPARSE_RECONSTRUCTION": 35.74,
+          "IMAGE_UNDISTORTION": 3.51,
+          "DENSE_RECONSTRUCTION": 776.38,
+          "STEREO_FUSION": 57.57,
+          "MESHING": 34.78,
+          "TEXTURING": 56.05,
+          "EXPORTING": 3.96
+        },
+        "resolved": {
+          "max_features": 8192,
+          "poisson_depth": 10,
+          "matcher": "sequential",
+          "dense_max_image_size": 2000,
+          "patchmatch_iterations": 5,
+          "fusion_threads": -1,
+          "texture_start_scale": 0.5,
+          "gpu_index": "0",
+          "poisson_threads": 4,
+          "poisson_trim": 10,
+          "colmap_bin": "/data/home/2024090904028/.conda/envs/colmap-gpu/bin/colmap",
+          "texturer_bin": "/tmp/recon-colmap.oUTYXW/env/bin/colmap",
+          "use_gpu": true
+        },
+        "artifacts": [
+          {
+            "model_id": 32,
+            "type": "sparse_pointcloud",
+            "faces": 0,
+            "points": 16905,
+            "sha256": "f2c77ca9bb592f909f48256205bef5444725261a27979ecc7428c32aff147fbb"
+          },
+          {
+            "model_id": 33,
+            "type": "dense_pointcloud",
+            "faces": 0,
+            "points": 1673290,
+            "sha256": "1dc5a8d6be902a160f5434aaa555bcacc3b8484ed4f5616e6a7fa762d70f5894"
+          },
+          {
+            "model_id": 34,
+            "type": "mesh",
+            "faces": 1013242,
+            "points": 0,
+            "sha256": "557504b7d70f1c05d4385b4b08cdec8de75f07046a00c9301088b08d66c1a66f"
+          },
+          {
+            "model_id": 35,
+            "type": "web",
+            "faces": 1013242,
+            "points": 0,
+            "sha256": "1293b603b26d5710a43855112cc8a0b2dbf83df5e55757bd40c485d51de6e8b6"
+          },
+          {
+            "model_id": 36,
+            "type": "web",
+            "faces": 1013242,
+            "points": 0,
+            "sha256": "59b6b06de3ea4834c0045378e431f93fdb4d78d4ee23f3d3278a232a0eb7291c"
+          }
+        ]
+      }
+    ]
+  },
+  "summary": {
+    "single": {
+      "median_dense_s": 776.78,
+      "median_wall_s": 1009.49,
+      "succeeded": 3,
+      "total": 3
+    },
+    "dual": {
+      "median_dense_s": 783.14,
+      "median_wall_s": 993.26,
+      "succeeded": 3,
+      "total": 3
+    },
+    "dense_speedup": 1.008,
+    "contaminated_first_single_arm": "INVALID: 单卡 1/3 轮被残留双卡 Worker 执行（稠密 777s ≈ 双卡速度；仅第 2 轮 1539s 为真单卡）。单卡臂已在 south-cold-matrix-single-rerun.json 重测。"
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "generated_at": "2026-11-21T05:40:00Z",
+  "protocol": "docs/集成系统验收标准.md",
+  "environments": {
+    "bridge": {
+      "dir": "../integrated-acceptance.bridge",
+      "api": "127.0.0.1:18497",
+      "redis": 18498,
+      "dense_px": 3000,
+      "parent": "C01 job#2 / R01 #24 snapshots (hash-pinned)"
+    },
+    "south": {
+      "dir": "../integrated-acceptance.south",
+      "api": "127.0.0.1:18487",
+      "redis": 18488,
+      "dense_px": 2000,
+      "parent": "fresh 36-photo standard-profile run (job 1)"
+    }
+  },
+  "bridge": {
+    "parent_model_sha256_unchanged": true,
+    "parent_cloud_sha256_unchanged": true,
+    "job10_registration": {
+      "registered": [
+        "new_000101_DSC_1290.jpg",
+        "new_000102_DSC_1291.jpg",
+        "new_000103_DSC_1292.jpg"
+      ],
+      "failed": [],
+      "parent_poses_unchanged": true,
+      "matcher": "exhaustive over parent+new database"
+    },
+    "job10_counts": {
+      "candidate_points_in_core": 792,
+      "new_view_supported_points": 763,
+      "added_points": 454,
+      "parent_points": 4258270
+    },
+    "job10_candidate": "model 4 (LOCAL_POINT_FUSION, 4258724 pts)",
+    "job10_dense_views": 9,
+    "d3_attempts": [
+      {
+        "region": "#28 继承选区（父网格洞边缘）",
+        "result": "rejected at LOCAL_MESHING/LOCAL_STITCH",
+        "reasons": [
+          "trim=10 空补丁（已改 trim=7）",
+          "边界环缝隙 0.6017 > 0.0192（父洞环与补丁环不对应）"
+        ]
+      }
+    ],
+    "conclusion": "D1–D2 通过；D3 门槛诚实拒绝：父网格 30.8 万顶点中 15 万在开放边界上，环对应不适定"
+  },
+  "south": {
+    "main_job": {
+      "id": 1,
+      "status": "SUCCEEDED",
+      "photos": 36,
+      "faces": 1021006,
+      "artifacts_sha256_16": {
+        "sparse_pointcloud.ply": "7ab5230a1d9a54fa",
+        "dense_pointcloud.ply": "d787c96cc9c1fc0d",
+        "mesh.ply": "9a79d919a4772210",
+        "model.glb": "be778fb879a19d42"
+      }
+    },
+    "job3_registration": {
+      "registered": [
+        "new_000037_P1180177.jpg",
+        "new_000038_P1180178.jpg",
+        "new_000039_P1180179.jpg",
+        "new_000040_P1180180.jpg"
+      ],
+      "failed": [],
+      "parent_poses_unchanged": true,
+      "matcher": "exhaustive over parent+new database"
+    },
+    "job3_counts": {
+      "candidate_points_in_core": 41028,
+      "new_view_supported_points": 1495,
+      "added_points": 32,
+      "parent_points": 1661136
+    },
+    "d3_attempts": [
+      {
+        "region": "quantile-tight (region 2)",
+        "result": "rejected at LOCAL_STITCH",
+        "reason": "父洞环 25334 点（切穿全局边界）vs 补丁 664 点"
+      },
+      {
+        "region": "连续立面 (region 3, 切割环偏差 0.022)",
+        "result": "D2 诚实拒绝：无支持非重复可加点（该区父覆盖已充分，补点为空）",
+        "note": "揭示架构边界：环缝合只在'父表面连续但补点无价值'处可行"
+      }
+    ],
+    "conclusion": "D1–D2 通过（4/4 注册、父位姿不变）；D3 门槛在两种选区下均诚实拒绝"
+  },
+  "d3_root_cause": "当前环-弧长缝合假设父洞边界与补丁边界形状对应；实际场景中父网格天然洞（trim 产物）与补点价值区高度重合，环对应普遍不适定。需要重叠带约束重网格化方案（列入后续工作）。",
+  "d4_decision": "不补做照片重投影接缝混合：其前提（已发布的拼接补丁）不存在；在未验证的缝合上叠加纹理无意义。"
+}

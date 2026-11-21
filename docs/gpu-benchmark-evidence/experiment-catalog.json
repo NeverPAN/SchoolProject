@@ -1,0 +1,309 @@
+[
+  {
+    "code": "B00",
+    "name": "Bridge · 双卡 3000 基线",
+    "parent": null,
+    "scope": "完整重建",
+    "source": {
+      "service": "18082",
+      "job_id": 13,
+      "input_sha256": "1f7a33f3771a66181309525bc916012822c398799d782f34999adf8ebd5b519a",
+      "input_sha256_scope": "parent job snapshot"
+    },
+    "parameters": {
+      "max_features": 8192,
+      "matcher_default": "exhaustive",
+      "poisson_depth": 10,
+      "dense_max_image_size": 3000,
+      "gpu_index": "0,1"
+    },
+    "metrics": {
+      "wall_seconds": 4553.102305
+    },
+    "files": [
+      {
+        "path": "optimization-round-20261120/job13-output-copy/sparse_pointcloud.ply",
+        "type": "sparse_pointcloud",
+        "origin": "EXPORTING",
+        "source_model_id": 55,
+        "sha256": "08b53f4ebe3ec617ce8a5d66d63a551221d3fdbff95f3193952af44673439c5d"
+      },
+      {
+        "path": "optimization-round-20261120/job13-output-copy/dense_pointcloud.ply",
+        "type": "dense_pointcloud",
+        "origin": "STEREO_FUSION",
+        "source_model_id": 56,
+        "sha256": "8f363b744e68bce982ade395af41b47268839b54a60b1b566b028dc2868924bf"
+      },
+      {
+        "path": "optimization-round-20261120/job13-output-copy/mesh.ply",
+        "type": "mesh",
+        "origin": "MESHING",
+        "source_model_id": 57,
+        "sha256": "55462d82e29e189d71c14ff4870ed4dc84af9cd7d1684ad5edf8436f44d32b7a"
+      },
+      {
+        "path": "optimization-round-20261120/job13-output-copy/model.glb",
+        "type": "web",
+        "origin": "EXPORTING",
+        "source_model_id": 58,
+        "sha256": "b96db8411a0248be6ef41d672f731275025656e615f78759e026ccc9ac8a6843"
+      },
+      {
+        "path": "optimization-round-20261120/job13-output-copy/model_photo.glb",
+        "type": "web",
+        "origin": "PHOTO_TEXTURE",
+        "source_model_id": 59,
+        "sha256": "9b990e0eec215c1c8cdb34a4762c019e52ea7a77c044ccf0c3ee152cc8d3605a"
+      }
+    ],
+    "display": {
+      "display_up": [
+        0.01566219731777567,
+        -0.9997308896363741,
+        0.017112681906792427
+      ],
+      "mesh_glb_color_space": "linear"
+    }
+  },
+  {
+    "code": "T01",
+    "name": "Bridge · 贴图 0.125 档",
+    "parent": "B00",
+    "scope": "仅贴图重打包（与基线 GLB 逐字节一致）",
+    "source": {
+      "service": "18082",
+      "job_id": 13,
+      "input_sha256": "1f7a33f3771a66181309525bc916012822c398799d782f34999adf8ebd5b519a",
+      "input_sha256_scope": "parent job snapshot"
+    },
+    "parameters": {
+      "texture_scale_factor": 0.125
+    },
+    "metrics": {
+      "atlas_size": [
+        8192,
+        4000
+      ],
+      "textured_faces": 369736,
+      "baseline_glb_identical": true
+    },
+    "display": {
+      "display_up": [
+        0.01566219731777567,
+        -0.9997308896363741,
+        0.017112681906792427
+      ],
+      "mesh_glb_color_space": "linear"
+    },
+    "files": [
+      {
+        "path": "experiment-export.LzSBgE/model_photo.glb",
+        "type": "web",
+        "origin": "PHOTO_TEXTURE",
+        "source_model_id": null,
+        "sha256": "9b990e0eec215c1c8cdb34a4762c019e52ea7a77c044ccf0c3ee152cc8d3605a"
+      }
+    ]
+  },
+  {
+    "code": "F01",
+    "name": "Bridge · 融合 56 线程 复测",
+    "parent": "B00",
+    "scope": "仅融合",
+    "source": {
+      "service": "18082",
+      "job_id": 13,
+      "input_sha256": "1f7a33f3771a66181309525bc916012822c398799d782f34999adf8ebd5b519a",
+      "input_sha256_scope": "parent job snapshot"
+    },
+    "parameters": {
+      "dense_max_image_size": 3000,
+      "fusion_threads": 56
+    },
+    "metrics": {
+      "fusion_seconds": 279.27
+    },
+    "files": [
+      {
+        "path": "optimization-round-20261120/fusion-sweep/fused-56-repeat.ply",
+        "type": "dense_pointcloud",
+        "origin": "STEREO_FUSION",
+        "source_model_id": null,
+        "sha256": "1ccf52e517598f445d27d353c96dc555068a5207e3acabaf903b5ce134e6b142"
+      }
+    ]
+  },
+  {
+    "code": "F02",
+    "name": "Bridge · 融合 32 线程",
+    "parent": "B00",
+    "scope": "仅融合",
+    "source": {
+      "service": "18082",
+      "job_id": 13,
+      "input_sha256": "1f7a33f3771a66181309525bc916012822c398799d782f34999adf8ebd5b519a",
+      "input_sha256_scope": "parent job snapshot"
+    },
+    "parameters": {
+      "dense_max_image_size": 3000,
+      "fusion_threads": 32
+    },
+    "metrics": {
+      "fusion_seconds": 211.532
+    },
+    "files": [
+      {
+        "path": "optimization-round-20261120/fusion-sweep/fused-32.ply",
+        "type": "dense_pointcloud",
+        "origin": "STEREO_FUSION",
+        "source_model_id": null,
+        "sha256": "0927e72edc33c3317361d63fa03ccd2e62ad355d9ccebcdde41c41e426b6311c"
+      }
+    ]
+  },
+  {
+    "code": "F03",
+    "name": "Bridge · 融合 16 线程",
+    "parent": "B00",
+    "scope": "仅融合",
+    "source": {
+      "service": "18082",
+      "job_id": 13,
+      "input_sha256": "1f7a33f3771a66181309525bc916012822c398799d782f34999adf8ebd5b519a",
+      "input_sha256_scope": "parent job snapshot"
+    },
+    "parameters": {
+      "dense_max_image_size": 3000,
+      "fusion_threads": 16
+    },
+    "metrics": {
+      "fusion_seconds": 132.762
+    },
+    "files": [
+      {
+        "path": "optimization-round-20261120/fusion-sweep/fused-16.ply",
+        "type": "dense_pointcloud",
+        "origin": "STEREO_FUSION",
+        "source_model_id": null,
+        "sha256": "fe2261624fbd92ed14aa4b773caac62431a5843db0a10818c34769294e18a32e"
+      }
+    ]
+  },
+  {
+    "code": "F04",
+    "name": "Bridge · 融合 16 线程 复测",
+    "parent": "B00",
+    "scope": "仅融合",
+    "source": {
+      "service": "18082",
+      "job_id": 13,
+      "input_sha256": "1f7a33f3771a66181309525bc916012822c398799d782f34999adf8ebd5b519a",
+      "input_sha256_scope": "parent job snapshot"
+    },
+    "parameters": {
+      "dense_max_image_size": 3000,
+      "fusion_threads": 16
+    },
+    "metrics": {
+      "fusion_seconds": 158.607
+    },
+    "files": [
+      {
+        "path": "optimization-round-20261120/fusion-sweep/fused-16-repeat.ply",
+        "type": "dense_pointcloud",
+        "origin": "STEREO_FUSION",
+        "source_model_id": null,
+        "sha256": "6417d991f7f1a1f17d0f8b398117e5a7347d987ecf06b8c23cdfdde456366847"
+      }
+    ]
+  },
+  {
+    "code": "S00",
+    "name": "South · 短测 5 次迭代",
+    "parent": "18082:任务#11",
+    "scope": "12 视图短测（仅稠密和融合）",
+    "source": {
+      "service": "18082",
+      "job_id": 11,
+      "input_sha256": "b5fbe59cd449d598d0cbe9798ce07b0e0ad87227465765b801ea243af2258dfd",
+      "input_sha256_scope": "parent job snapshot"
+    },
+    "parameters": {
+      "gpu_index": "0,1",
+      "dense_max_image_size": 3000,
+      "iterations": 5,
+      "views": [
+        "img_0016_P1180157.jpg",
+        "img_0017_P1180158.jpg",
+        "img_0018_P1180159.jpg",
+        "img_0019_P1180160.jpg",
+        "img_0020_P1180161.jpg",
+        "img_0021_P1180162.jpg",
+        "img_0022_P1180163.jpg",
+        "img_0023_P1180164.jpg",
+        "img_0024_P1180165.jpg",
+        "img_0025_P1180166.jpg",
+        "img_0026_P1180167.jpg",
+        "img_0027_P1180168.jpg"
+      ]
+    },
+    "metrics": {
+      "patchmatch_seconds": 324.84,
+      "projected_point_coverage_pct": 36.2
+    },
+    "files": [
+      {
+        "path": "optimization-round-20261120/south-short/fused-5.ply",
+        "type": "dense_pointcloud",
+        "origin": "STEREO_FUSION",
+        "source_model_id": null,
+        "sha256": "e6494f2ba185b01ce934746a63b3d47d3b5173d0301e6fcb6e3897d756ee778c"
+      }
+    ]
+  },
+  {
+    "code": "S01",
+    "name": "South · 短测 3 次迭代",
+    "parent": "S00",
+    "scope": "12 视图短测（仅稠密和融合）",
+    "source": {
+      "service": "18082",
+      "job_id": 11,
+      "input_sha256": "b5fbe59cd449d598d0cbe9798ce07b0e0ad87227465765b801ea243af2258dfd",
+      "input_sha256_scope": "parent job snapshot"
+    },
+    "parameters": {
+      "gpu_index": "0,1",
+      "dense_max_image_size": 3000,
+      "iterations": 3,
+      "views": [
+        "img_0016_P1180157.jpg",
+        "img_0017_P1180158.jpg",
+        "img_0018_P1180159.jpg",
+        "img_0019_P1180160.jpg",
+        "img_0020_P1180161.jpg",
+        "img_0021_P1180162.jpg",
+        "img_0022_P1180163.jpg",
+        "img_0023_P1180164.jpg",
+        "img_0024_P1180165.jpg",
+        "img_0025_P1180166.jpg",
+        "img_0026_P1180167.jpg",
+        "img_0027_P1180168.jpg"
+      ]
+    },
+    "metrics": {
+      "patchmatch_seconds": 210.18,
+      "projected_point_coverage_pct": 34.7
+    },
+    "files": [
+      {
+        "path": "optimization-round-20261120/south-short/fused-3.ply",
+        "type": "dense_pointcloud",
+        "origin": "STEREO_FUSION",
+        "source_model_id": null,
+        "sha256": "68a51a9361849f6bff140bdee71306f851b1049112aac1bd40801f8d1a94459d"
+      }
+    ]
+  }
+]

@@ -1,0 +1,240 @@
+{
+  "artifact": "18479 project 1 / model 28 / job 15",
+  "parent_model": 24,
+  "sha256": {
+    "frozen_report": "26af478e364f8a32df02ca54f4595b50afa2cf0663a9cf4815bed3acde8faafd",
+    "platform_28": "57f76cb4574295fc8fbd8c09d1ef7fde586be498863df6783761bdfa183d4988",
+    "baseline_clouds": {
+      "parent": "f96be7d6b2e9c9a0c8d7c9839672bb71f8294109db2124e44cdeb46739460f37",
+      "control": "d08e58d3c2f81a36204637a6e1f674eb8ee2447eb65912d22dee32d821e6b38e",
+      "candidate": "c124b1432482dd69c9f0eaaaa45d7174d9b37cba9401e334a26f77adc890f55e"
+    },
+    "job_manifest": "f0d0a83e3207c5050d49d055bd3dbce6d34e2b1c0418af71508f330a0b134a33",
+    "job_dense_log": "37b56e10f25c66b8355319622f752cc40b80e57718c52f81bd7e0ca273876123",
+    "parent_patchmatch": "498c00063c143727d1e10f3abcd1982b51f7d81165602d4f9830cca2d8f66887",
+    "holdout_patchmatch": "55ef17ee64bc3ebb148b655dc603cbf5afc3338581d3fb114d1e214eed7bf14d",
+    "holdout_photos": {
+      "new_DSC_1296.jpg": "9a144ac4de59740a57be27de48146032ed42242ea2f3ac2d4e6b72302cf322c0",
+      "new_DSC_1295.jpg": "45cad067077651e2f2ae4c6c0f49af8f0ace2219f63b134effdcaae823b637cc",
+      "new_DSC_1293.jpg": "af7e454534a54c867ab58bf5931e260b4829c85568e62806f9f0852e9a9d9c7d",
+      "new_DSC_1289.jpg": "5df1f090f1ba817b0370061f9e6c24202b75f555e8ed44774b306c7ea2ae4691",
+      "new_DSC_1297.jpg": "0830ce5d698a4c89555aa3e7ad36ab4f387e775716293d722986c39b6fadc491"
+    },
+    "holdout_camera_text": {
+      "cameras.txt": "6262fd6c596a97f11b5e10294ebdc9c9d386524a79f74b70720420a926b604b9",
+      "images.txt": "e07c82f948a7e9f733c7475545160cf8f48978ef998208636fbd732649ec5363"
+    },
+    "holdout_depths": {
+      "new_DSC_1289.jpg": "ec19fb15925dc2e0fdca75458c1376c254553c64e0013480088865f0ae8c5a37",
+      "new_DSC_1293.jpg": "0a5d817ab2dbd4e47d060cac603cf5ccdd339abd64bed769d7e1871fd3dfa6fb",
+      "new_DSC_1295.jpg": "c7a168cfc8f26cf0a0e6e44fb750d84638d90a8358652b21f561caac713ccb18",
+      "new_DSC_1296.jpg": "02c7d781d1a8cba7e08dfe74b55406e826f76e59f891947dd11c0bc69976e0d6",
+      "new_DSC_1297.jpg": "56a0eb35f9a8b88481959f2b09cacb7bd06b867ea5b5364b6f41a5a53fe2f663"
+    }
+  },
+  "holdout_graph": {
+    "new_DSC_1289.jpg": [
+      "new_DSC_1293.jpg",
+      "new_DSC_1295.jpg",
+      "new_DSC_1296.jpg",
+      "new_DSC_1297.jpg"
+    ],
+    "new_DSC_1293.jpg": [
+      "new_DSC_1289.jpg",
+      "new_DSC_1296.jpg",
+      "new_DSC_1297.jpg"
+    ],
+    "new_DSC_1295.jpg": [
+      "new_DSC_1289.jpg",
+      "new_DSC_1297.jpg"
+    ],
+    "new_DSC_1296.jpg": [
+      "new_DSC_1289.jpg",
+      "new_DSC_1293.jpg",
+      "new_DSC_1297.jpg"
+    ],
+    "new_DSC_1297.jpg": [
+      "new_DSC_1289.jpg",
+      "new_DSC_1293.jpg",
+      "new_DSC_1295.jpg",
+      "new_DSC_1296.jpg"
+    ]
+  },
+  "local_training": {
+    "img_0054_DSC_1233.jpg": "230e9960baa9f6ceb307cfad2bae15287b970dd8e1aa78859542649350cad896",
+    "img_0055_DSC_1234.jpg": "b4a8964a476657c7131b1e71685c2a40d804dbf5282f3117ae009fd7d80f30f9",
+    "img_0056_DSC_1235.jpg": "f383acd229f477d43f41c02bb5f7174ba6e5a924572083a6b9766e5fdeeecb96",
+    "img_0057_DSC_1236.jpg": "30cb8c28ac8e0d6bb2fba7edb8ca25262fc5ca872f81371e3c6ac5293f3787cf",
+    "img_0058_DSC_1237.jpg": "2dd2ff4fc069740fbd25572144cebd7e3c3a6974e8747349fcb35c01f66cbe66",
+    "img_0059_DSC_1238.jpg": "595d7f212564c7948f4ceafae1591899f92b6ce16c01721b45e39b446db9082f",
+    "img_0060_DSC_1239.jpg": "5ca8510e653e0718d91dc82f7a469762e7898d950e54683df7f4e7d579204fd4",
+    "img_0061_DSC_1240.jpg": "2f62230e84efefb5ad2e57827420908ba9b4b525c7bd1fd0ceb0bce2dbeab4a0",
+    "img_0062_DSC_1241.jpg": "2c4ddbf63af55e45460291e216a32846585207dfd5158d82bd561fda561dd159",
+    "img_0063_DSC_1242.jpg": "64bddd1ce49264ef66832e4f6a6df33b1279a4acf9cb5177db89960d7048296e",
+    "img_0064_DSC_1243.jpg": "ff3187ca75850e67c8e81f77215ac0567294a8c39604d9a59638516bdbb3454d",
+    "new_DSC_1290.jpg": "6144a4e3a1d337eb4c2ddf443d9bef333458e545ec3c6a96198618568b73cb95",
+    "new_DSC_1291.jpg": "f637c0d85f55cd3a4cc38fcd39c997681fb625a91a7b3f3690882c7ae5400e0a",
+    "new_DSC_1292.jpg": "ee68ce12721a1d6504fe5ed5c7c12eefdb139b98109b8cecb397027e9530e913"
+  },
+  "local_source_policy": "explicit all other selected views",
+  "logged_reference_indices": [
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    102,
+    103,
+    104
+  ],
+  "logged_source_indices": [
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    102,
+    103,
+    104
+  ],
+  "parent_training_inventory": 100,
+  "holdout_dense_training_overlap": false,
+  "parent_vertex_records_identical": true,
+  "parent_points": 4258270,
+  "added_points": 543,
+  "all_additions_inside_guarded_core": true,
+  "platform_core_bounds_native": [
+    [
+      6.510000000000001,
+      -0.72,
+      2.4899999999999998
+    ],
+    [
+      7.92,
+      -0.41000000000000003,
+      3.1400000000000006
+    ]
+  ],
+  "evaluation_bounds_native": [
+    [
+      6.48,
+      -0.75,
+      2.46
+    ],
+    [
+      7.95,
+      -0.38,
+      3.1700000000000004
+    ]
+  ],
+  "ray_mask": "frozen parent/L00/L01 common rays",
+  "scores": {
+    "new_DSC_1289.jpg": {
+      "verified_pixels": 2291,
+      "holdout_sample_voxels": 2291,
+      "arms": {
+        "parent": {
+          "roi_cloud_points": 14323,
+          "holdout_to_cloud": {
+            "median": 0.010144041538850412,
+            "p90": 0.026472536410440246,
+            "fraction_within_0_02": 0.8070711479703186
+          },
+          "holdout_ray_projection": {
+            "covered_pixels": 2247,
+            "verified_pixel_coverage": 0.9807944129201223,
+            "common_pixel_count": 2247,
+            "common_absolute_z_error": {
+              "median": 0.02927292388567615,
+              "p90": 0.19729268280555756,
+              "fraction_within_0_02": 0.3604806408544726
+            }
+          }
+        },
+        "platform_28": {
+          "roi_cloud_points": 14866,
+          "holdout_to_cloud": {
+            "median": 0.009679507256371343,
+            "p90": 0.02547443209772806,
+            "fraction_within_0_02": 0.8236577913574858
+          },
+          "holdout_ray_projection": {
+            "covered_pixels": 2248,
+            "verified_pixel_coverage": 0.981230903535574,
+            "common_pixel_count": 2247,
+            "common_absolute_z_error": {
+              "median": 0.029894684084293743,
+              "p90": 0.19729268280555756,
+              "fraction_within_0_02": 0.35336003560302626
+            }
+          }
+        }
+      }
+    },
+    "new_DSC_1293.jpg": {
+      "verified_pixels": 5698,
+      "holdout_sample_voxels": 5695,
+      "arms": {
+        "parent": {
+          "roi_cloud_points": 14323,
+          "holdout_to_cloud": {
+            "median": 0.009164210309459454,
+            "p90": 0.02641399943806556,
+            "fraction_within_0_02": 0.820017559262511
+          },
+          "holdout_ray_projection": {
+            "covered_pixels": 5302,
+            "verified_pixel_coverage": 0.9305019305019305,
+            "common_pixel_count": 5302,
+            "common_absolute_z_error": {
+              "median": 0.021219930240526264,
+              "p90": 0.23082754299008088,
+              "fraction_within_0_02": 0.4737834779328555
+            }
+          }
+        },
+        "platform_28": {
+          "roi_cloud_points": 14866,
+          "holdout_to_cloud": {
+            "median": 0.008960198506865281,
+            "p90": 0.025493540650969773,
+            "fraction_within_0_02": 0.8328358208955224
+          },
+          "holdout_ray_projection": {
+            "covered_pixels": 5320,
+            "verified_pixel_coverage": 0.9336609336609336,
+            "common_pixel_count": 5302,
+            "common_absolute_z_error": {
+              "median": 0.021610338522589867,
+              "p90": 0.23082754299008088,
+              "fraction_within_0_02": 0.46869105997736704
+            }
+          }
+        }
+      }
+    }
+  },
+  "addition_to_any_verified_depth": {
+    "median": 0.02193079845058023,
+    "p90": 0.056695423369551114,
+    "fraction_within_0_02": 0.4567219152854512
+  },
+  "limits": [
+    "Shared sparse calibration; held out from dense inputs only.",
+    "Native model units, not meters; no exterior roof, mesh seams or texture evaluated.",
+    "Add-only nearest-sample distances cannot worsen; common-ray depth can worsen.",
+    "No new GPU run, mesh stitch, or publication."
+  ]
+}

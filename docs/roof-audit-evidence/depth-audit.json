@@ -1,0 +1,302 @@
+{
+  "1": {
+    "upper_cloud_cutoff": 0.6041586874074887,
+    "camera_height_min": -0.038637249109890914,
+    "camera_height_max": 0.02552429312616314,
+    "camera_count": 100,
+    "views": [
+      {
+        "name": "img_0000_DSC_1174.jpg",
+        "photometric": {
+          "valid": 5867536,
+          "upper": 1259367
+        },
+        "geometric": {
+          "valid": 2372191,
+          "upper": 474487
+        }
+      },
+      {
+        "name": "img_0008_DSC_1183.jpg",
+        "photometric": {
+          "valid": 5867898,
+          "upper": 1579300
+        },
+        "geometric": {
+          "valid": 3112067,
+          "upper": 779297
+        }
+      },
+      {
+        "name": "img_0016_DSC_1192.jpg",
+        "photometric": {
+          "valid": 5867787,
+          "upper": 1300728
+        },
+        "geometric": {
+          "valid": 2688080,
+          "upper": 613307
+        }
+      },
+      {
+        "name": "img_0025_DSC_1204.jpg",
+        "photometric": {
+          "valid": 5867822,
+          "upper": 1168877
+        },
+        "geometric": {
+          "valid": 2727536,
+          "upper": 429056
+        }
+      },
+      {
+        "name": "img_0033_DSC_1212.jpg",
+        "photometric": {
+          "valid": 5867972,
+          "upper": 514763
+        },
+        "geometric": {
+          "valid": 4036549,
+          "upper": 266528
+        }
+      },
+      {
+        "name": "img_0041_DSC_1220.jpg",
+        "photometric": {
+          "valid": 5867587,
+          "upper": 1349774
+        },
+        "geometric": {
+          "valid": 4179130,
+          "upper": 791941
+        }
+      },
+      {
+        "name": "img_0050_DSC_1229.jpg",
+        "photometric": {
+          "valid": 5867918,
+          "upper": 1345129
+        },
+        "geometric": {
+          "valid": 3988626,
+          "upper": 855226
+        }
+      },
+      {
+        "name": "img_0058_DSC_1237.jpg",
+        "photometric": {
+          "valid": 5867697,
+          "upper": 1884959
+        },
+        "geometric": {
+          "valid": 2014540,
+          "upper": 640955
+        }
+      },
+      {
+        "name": "img_0066_DSC_1245.jpg",
+        "photometric": {
+          "valid": 5867697,
+          "upper": 1629854
+        },
+        "geometric": {
+          "valid": 2222240,
+          "upper": 393195
+        }
+      },
+      {
+        "name": "img_0075_DSC_1257.jpg",
+        "photometric": {
+          "valid": 5867913,
+          "upper": 409210
+        },
+        "geometric": {
+          "valid": 1406818,
+          "upper": 83588
+        }
+      },
+      {
+        "name": "img_0083_DSC_1265.jpg",
+        "photometric": {
+          "valid": 5867730,
+          "upper": 1608362
+        },
+        "geometric": {
+          "valid": 3311856,
+          "upper": 860853
+        }
+      },
+      {
+        "name": "img_0091_DSC_1273.jpg",
+        "photometric": {
+          "valid": 5867524,
+          "upper": 553286
+        },
+        "geometric": {
+          "valid": 866789,
+          "upper": 40030
+        }
+      }
+    ],
+    "sum": {
+      "photometric": {
+        "valid": 70413081,
+        "upper": 14603609
+      },
+      "geometric": {
+        "valid": 32926422,
+        "upper": 6228463
+      }
+    }
+  },
+  "2": {
+    "upper_cloud_cutoff": 0.5866318442343362,
+    "camera_height_min": -0.04420178791606558,
+    "camera_height_max": 0.02429200510356087,
+    "camera_count": 100,
+    "views": [
+      {
+        "name": "img_0000_DSC_1174.jpg",
+        "photometric": {
+          "valid": 5864390,
+          "upper": 1330291
+        },
+        "geometric": {
+          "valid": 2218831,
+          "upper": 457712
+        }
+      },
+      {
+        "name": "img_0008_DSC_1183.jpg",
+        "photometric": {
+          "valid": 5864971,
+          "upper": 1673967
+        },
+        "geometric": {
+          "valid": 2990996,
+          "upper": 775597
+        }
+      },
+      {
+        "name": "img_0016_DSC_1192.jpg",
+        "photometric": {
+          "valid": 5864957,
+          "upper": 1353649
+        },
+        "geometric": {
+          "valid": 2599025,
+          "upper": 612513
+        }
+      },
+      {
+        "name": "img_0025_DSC_1204.jpg",
+        "photometric": {
+          "valid": 5864794,
+          "upper": 1243992
+        },
+        "geometric": {
+          "valid": 2593793,
+          "upper": 412170
+        }
+      },
+      {
+        "name": "img_0033_DSC_1212.jpg",
+        "photometric": {
+          "valid": 5864977,
+          "upper": 623548
+        },
+        "geometric": {
+          "valid": 3935548,
+          "upper": 348437
+        }
+      },
+      {
+        "name": "img_0041_DSC_1220.jpg",
+        "photometric": {
+          "valid": 5864900,
+          "upper": 1447799
+        },
+        "geometric": {
+          "valid": 4122590,
+          "upper": 851001
+        }
+      },
+      {
+        "name": "img_0050_DSC_1229.jpg",
+        "photometric": {
+          "valid": 5864445,
+          "upper": 1431143
+        },
+        "geometric": {
+          "valid": 3884968,
+          "upper": 864310
+        }
+      },
+      {
+        "name": "img_0058_DSC_1237.jpg",
+        "photometric": {
+          "valid": 5864567,
+          "upper": 1959277
+        },
+        "geometric": {
+          "valid": 2295198,
+          "upper": 668130
+        }
+      },
+      {
+        "name": "img_0066_DSC_1245.jpg",
+        "photometric": {
+          "valid": 5864920,
+          "upper": 1679513
+        },
+        "geometric": {
+          "valid": 2053819,
+          "upper": 360527
+        }
+      },
+      {
+        "name": "img_0075_DSC_1257.jpg",
+        "photometric": {
+          "valid": 5864918,
+          "upper": 464209
+        },
+        "geometric": {
+          "valid": 1241339,
+          "upper": 79900
+        }
+      },
+      {
+        "name": "img_0083_DSC_1265.jpg",
+        "photometric": {
+          "valid": 5864536,
+          "upper": 1670876
+        },
+        "geometric": {
+          "valid": 3182091,
+          "upper": 846642
+        }
+      },
+      {
+        "name": "img_0091_DSC_1273.jpg",
+        "photometric": {
+          "valid": 5864702,
+          "upper": 650981
+        },
+        "geometric": {
+          "valid": 696564,
+          "upper": 32635
+        }
+      }
+    ],
+    "sum": {
+      "photometric": {
+        "valid": 70377077,
+        "upper": 15529245
+      },
+      "geometric": {
+        "valid": 31814762,
+        "upper": 6309574
+      }
+    }
+  }
+}

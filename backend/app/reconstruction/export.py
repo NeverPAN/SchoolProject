@@ -1,0 +1,201 @@
+"""导出工具 — GLB 转换、点云着色网格、预览图。
+
+- 网格 PLY → GLB：使用 trimesh；对无颜色网格，用稠密点云颜色做最近邻着色，
+  便于 Web 端展示彩色模型；
+- 预览 PNG：稠密点云降采样 + matplotlib 离屏渲染。
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+
+
+def ply_stats(path: str | Path) -> dict:
+    """读取 PLY 顶点/面数/点数统计（自解析，兼容 COLMAP 二进制 PLY）。"""
+    try:
+        with open(path, "rb") as f:
+            header = []
+            while True:
+                line = f.readline()
+                if not line:
+                    return {"vertex_count": 0, "face_count": 0, "point_count": 0}
+                header.append(line.decode("ascii", errors="replace").strip())
+                if line.strip() == b"end_header":
+                    break
+        n_vertex = n_face = 0
+        v_props: list[tuple[str, str]] = []
+        f_props: list[tuple[str, str]] = []
+        cur = None
+        for ln in header:
+            if ln.startswith("element"):
+                parts = ln.split()
+                cur = parts[1]
+                if cur == "vertex":
+                    n_vertex = int(parts[2])
+                elif cur == "face":
+                    n_face = int(parts[2])
+            elif ln.startswith("property"):
+                parts = ln.split()
+                if cur == "vertex":
+                    v_props.append((parts[1], parts[2]))
+                elif cur == "face" and parts[1] != "list":
+                    f_props.append((parts[1], parts[2]))
+        size = 0
+        _types = {"float": 4, "float32": 4, "double": 8, "uchar": 1, "uint8": 1, "int": 4, "int32": 4}
+        for t, _n in v_props:
+            size += _types.get(t, 4)
+        vertex_bytes = n_vertex * size
+        face_list_bytes = n_face * (1 + 3 * 4)  # list count + 3 int32（常见布局）
+        point_count = n_vertex if n_face == 0 else 0
+        return {
+            "vertex_count": int(n_vertex),
+            "face_count": int(n_face),
+            "point_count": int(point_count) if vertex_bytes else int(n_vertex),
+        }
+    except Exception:
+        pass
+    # 回退 trimesh（ASCII PLY 或解析失败时）
+    import trimesh
+
+    m = trimesh.load(path, force="mesh", process=False)
+    faces = len(m.faces) if hasattr(m, "faces") else 0
+    vertices = len(m.vertices) if hasattr(m, "vertices") else 0
+    return {
+        "vertex_count": int(vertices),
+        "face_count": int(faces),
+        "point_count": int(vertices) if faces == 0 else 0,
+    }
+
+
+def colorize_mesh_from_cloud(mesh_ply: Path, cloud_ply: Path, out_ply: Path, max_samples: int = 400_000) -> bool:
+    """用稠密点云颜色给无色网格顶点着色（scipy cKDTree 最近邻）。"""
+    import trimesh
+    from scipy.spatial import cKDTree
+
+    mesh = trimesh.load(mesh_ply, force="mesh", process=False)
+    if mesh.visual.kind == "vertex" and mesh.visual.vertex_colors is not None:
+        return False  # 已有颜色
+    cloud = trimesh.load(cloud_ply, force="mesh", process=False)
+    if len(cloud.vertices) == 0:
+        return False
+
+    # 点云太大时降采样
+    if len(cloud.vertices) > max_samples:
+        idx = np.random.default_rng(42).choice(len(cloud.vertices), max_samples, replace=False)
+        cloud_pts = cloud.vertices[idx]
+        cloud_cols = cloud.visual.vertex_colors[idx, :3] if cloud.visual.kind == "vertex" else None
+    else:
+        cloud_pts = cloud.vertices
+        cloud_cols = cloud.visual.vertex_colors[:, :3] if cloud.visual.kind == "vertex" else None
+
+    if cloud_cols is None:
+        return False
+    tree = cKDTree(cloud_pts)
+    dist, nn = tree.query(mesh.vertices, k=1)
+    valid = dist < np.percentile(dist, 90) * 3  # 排除明显离群
+    colors = np.zeros((len(mesh.vertices), 3), dtype=np.uint8)
+    colors[valid] = cloud_cols[nn[valid]]
+    mesh.visual = trimesh.visual.ColorVisuals(mesh, face_colors=None, vertex_colors=colors)
+    mesh.export(out_ply)
+    return True
+
+
+def mesh_to_glb(mesh_ply: Path, out_glb: Path) -> dict:
+    """导出双面、平滑着色的 GLB，保留源网格坐标及三角面绕序。"""
+    import trimesh
+    from trimesh.exchange.gltf import export_glb
+
+    mesh = trimesh.load(mesh_ply, force="mesh", process=False)
+    if not len(mesh.vertices) or not len(mesh.faces):
+        raise ValueError("没有可导出的三角网格")
+    if mesh.visual.kind == "vertex":
+        rgba = mesh.visual.vertex_colors.astype(np.float32) / 255.0
+        rgb = rgba[:, :3]
+        rgba[:, :3] = np.where(rgb <= 0.04045, rgb / 12.92, ((rgb + 0.055) / 1.055) ** 2.4)
+        mesh.visual = trimesh.visual.ColorVisuals(mesh=mesh)
+        mesh.vertex_attributes["_linear_rgba"] = rgba
+    normals = np.array(mesh.vertex_normals, copy=True)
+    invalid = ~np.isfinite(normals).all(axis=1) | (np.linalg.norm(normals, axis=1) < 1e-8)
+    normals[invalid] = (0, 1, 0)
+    mesh.vertex_normals = normals
+
+    def set_material(tree):
+        tree["materials"] = [{
+            "doubleSided": True,
+            "pbrMetallicRoughness": {"metallicFactor": 0, "roughnessFactor": 0.85},
+        }]
+        for geometry in tree["meshes"]:
+            for primitive in geometry["primitives"]:
+                attributes = primitive["attributes"]
+                if "_linear_rgba" in attributes:
+                    attributes["COLOR_0"] = attributes.pop("_linear_rgba")
+                primitive["material"] = 0
+
+    out_glb.parent.mkdir(parents=True, exist_ok=True)
+    out_glb.write_bytes(export_glb(mesh, include_normals=True, tree_postprocessor=set_material))
+    return {"vertex_count": len(mesh.vertices), "face_count": len(mesh.faces), "point_count": 0}
+
+
+def pointcloud_to_glb(ply_path: Path, out_glb: Path, max_points: int = 3_000_000) -> bool:
+    """稠密点云 PLY → GLB（POINTS 图元）。返回是否成功。
+
+    trimesh 导出 PointCloud 为 glTF POINTS 基本图元；Three.js GLTFLoader 可加载。
+    """
+    try:
+        import trimesh
+
+        cloud = trimesh.load(ply_path, force="mesh", process=False)
+        if len(cloud.faces) > 0 or len(cloud.vertices) == 0:
+            return False
+        pc = trimesh.PointCloud(cloud.vertices, colors=cloud.visual.vertex_colors if cloud.visual.kind == "vertex" else None)
+        if len(pc.vertices) > max_points:
+            idx = np.random.default_rng(42).choice(len(pc.vertices), max_points, replace=False)
+            pc = trimesh.PointCloud(pc.vertices[idx], colors=pc.colors[idx] if pc.colors is not None else None)
+        out_glb.parent.mkdir(parents=True, exist_ok=True)
+        pc.export(out_glb, file_type="glb")
+        return True
+    except Exception:
+        return False
+
+
+def make_preview_png(ply_path: Path, out_png: Path, max_points: int = 60_000) -> bool:
+    """稠密/稀疏点云 → 预览 PNG（matplotlib 离屏）。"""
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import trimesh
+
+        cloud = trimesh.load(ply_path, force="mesh", process=False)
+        pts = cloud.vertices
+        cols = cloud.visual.vertex_colors[:, :3] / 255.0 if cloud.visual.kind == "vertex" and cloud.visual.vertex_colors is not None else None
+        if len(pts) == 0:
+            return False
+        if len(pts) > max_points:
+            idx = np.random.default_rng(42).choice(len(pts), max_points, replace=False)
+            pts = pts[idx]
+            cols = cols[idx] if cols is not None else None
+
+        fig = plt.figure(figsize=(8, 8), dpi=100)
+        ax = fig.add_subplot(111, projection="3d")
+        ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2], s=0.5, c=cols, linewidths=0)
+        ax.set_axis_off()
+        ax.view_init(elev=25, azim=45)
+        try:
+            m2 = cloud.bounding_box
+            ex = m2.extents.max()
+            if ex > 0:
+                c = cloud.bounds.mean(axis=0)
+                ax.set_xlim(c[0] - ex / 2, c[0] + ex / 2)
+                ax.set_ylim(c[1] - ex / 2, c[1] + ex / 2)
+                ax.set_zlim(c[2] - ex / 2, c[2] + ex / 2)
+        except Exception:
+            pass
+        out_png.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(out_png, bbox_inches="tight", pad_inches=0.05, facecolor="white")
+        plt.close(fig)
+        return True
+    except Exception:
+        return False

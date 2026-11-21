@@ -1,0 +1,61 @@
+# 集成系统迭代：从 Bridge 特化到通用管线（阶段 A–G）
+
+父轮次：[19 查看器与 #28 复验](19-viewer-and-platform-holdout.md)。本轮目标不是再做 #24 特化模型，而是把系统改成**任意照片集**都能走完统一流程：主重建（双卡/3000 px/profile 提速）、原色贴图、区域提取、任意新增照片局部注册与融合、网格补丁候选。证据样例（#29/#59/#22/#24/#27/#28）只作为回归参照。总规范见[集成系统验收标准](../集成系统验收标准.md)。
+
+## 已实现（按阶段）
+
+| 阶段 | 内容 | 关键实现 |
+| --- | --- | --- |
+| A1 配置冻结 | 任务创建时一次解析并冻结 preset/匹配/稠密/贴图/GPU 参数；auto 匹配按文件名连续性决策；提交预检（缺失文件、分辨率、质量汇总，重叠如实标 unknown）；双卡能力核查（无 CUDA 或请求索引不可见 → 提交即失败，不再静默降级） | `backend/app/reconstruction/profiles.py`、`job_service.create_job`、`PipelineContext` 优先读 resolved |
+| A1 speed 画像 | C01 组合提速参数变成通用可选画像 `speed`（PatchMatch 3、融合 16 线程、贴图 0.125 起），不绑定场景 | `profiles.PROFILES` |
+| A2 质量管线 | Poisson `trim` 可配置；MESHING 阶段自动生成面支撑/分区支撑代理指标，上部支撑不足时按预声明门槛生成 trim-1 候选并裁定；相机高度提示"顶部不可验证"；贴图记录注册照片数与工具二进制 SHA-256 | `mesh_quality.py`、`pipeline._stage_meshing`、`texturer` 元数据 |
+| B 原色贴图 | 可用性以 GLB 实际内容为准（`inspect_glb`：内嵌纹理+UV），详情页显示贴图资产实测；点云/无纹理网格不再出现误导选项；EV 仍是预览 | `glb_assets.py`、`ModelDetailOut.texture_assets`、`photoColorAvailable` |
+| C 区域提取 | 报告记录裁剪语义、父哈希、开放边界数、导出文件贴图资产；支持已保存选区复用；回父模型选区（前轮） | `local_region.py`、`modelApi.listRegions` |
+| D1 注册 | 新 `local_general` 模式：1–32 张任意新增照片，`feature_extractor + matches_importer + image_registrator` 注册到父稀疏模型；父位姿逐字保持；逐张报告成功/失败；注册 0 张即失败 | `local_general.py`、adapter 新增两个命令封装 |
+| D2 局部融合 | 视角集 = 注册新视角 + 距选区最近父视角（≤16）；支持点须在保护带核心盒、多视角深度一致、父距离窗内；父点记录逐字节前缀 | 同上（`_select_dense_views`、`_select_patch(min_votes)`） |
+| D3 网格补丁 | 新 `local_mesh` 模式：父侧核心盒外面片保留（visual/UV/材质原样），补丁 Poisson + 顶点级盒切，边界环弧长对齐缝合；不变量（区域外面逐字保留、无非流形边）不过 → 只写诊断报告不发布 | `local_mesh_patch.py`、`POST /models/{id}/local-mesh` |
+| D4 补丁着色 | 补丁顶点色取融合点云多视角颜色；父侧贴图原样保留；manifest 标注"顶点色补丁，非图集" | 同上 |
+| E 前端与证据 | 通用局部模式照片选择（不再限定文件名/数量）、任务详情冻结配置/预检/GPU 核查卡片、local_general/local_mesh 阶段时间线与中文标签、点云候选一键生成补丁 | `ModelViewerView.vue`、`JobDetailView.vue`、`api/index.ts` |
+
+## 验证（分层，不互相替代）
+
+| 层 | 结果 |
+| --- | --- |
+| 后端 pytest | **175 项通过**（新增 profiles/网格质量/GLB 资产/通用局部/网格补丁 5 个测试文件） |
+| 前端 | node 回归通过；生产构建通过 |
+| Chromium 夹具 | `scripts/phase8_gui_test.py` 通过：含已保存选区复用、网格补丁提交、归档/点云/普通版本导航、下载哈希 |
+| 真实 HTTP/队列/Worker | 隔离 mock 环境 `e2e_test.py --preset speed --matcher auto` 全链路通过；发布清单实测含冻结参数、`auto→sequential` 决策、预检 30 张、工具/引擎身份 |
+| 真实 GPU | **未执行**。D1–D4 的真实照片注册、局部融合、网格补丁、留出深度尚未在真实场景跑通；这是集成候选发布前的必要验收 |
+
+## 真实 GPU 验收（2026-11-21 追加）
+
+证据：[d-chain-results.json](../integrated-acceptance-evidence/d-chain-results.json)（随冷跑矩阵持续更新）。
+
+| 项 | Bridge（C01/#24 快照父版） | South（36 张全新跑 + 4 张留出） |
+| --- | --- | --- |
+| 主链路 | 父工件经哈希钉扎登记（操作员快照，非重跑） | **全新真实跑通过**（36 张、双 A800、2000 px、1,021,006 面、贴图 GLB） |
+| D1 注册 | 3/3 注册，父位姿逐字不变 | 4/4 注册，父位姿逐字不变 |
+| D2 局部融合 | 候选 4,258,724 点（+454），父记录逐字节前缀 | 候选 1,661,168 点（+32），父产物哈希不变 |
+| D3 网格补丁 | 门槛诚实拒绝（父网格 15 万/30.8 万顶点在开放边界，环对应不适定） | 门槛诚实拒绝（大区切穿全局边界；连续立面区 D2 诚实拒绝——父覆盖已充分，无可加点） |
+| D4 | 未触发（前提是已发布补丁） | 同左 |
+
+真实验收期间发现并修复 6 个实现问题：`new_names` 未初始化、NFS 临时目录清理掩盖真实异常（两处）、COLMAP 选项前缀未随探测版本刷新、`local_general` Worker 分支缺 publish/return（误跑标准管线并误发布，已清理）、`_inside` 未导入、巨型天然洞环被误选（环选择加包围盒尺寸过滤）。另有一次**操作失误**：验收组装脚本曾把 alembic upgrade 指向默认历史库（22651a4c6e93 → head 的两个可加性迁移），已备份 `recon.db.pre-acceptance-audit-*.bak` 并核实 8 用户/13 项目/255 图数据完整；脚本已加环境栅栏。
+
+**架构结论（D3）**：环-弧长缝合只在"父表面连续但补点无价值"处可行，而补点价值区恰是父网格天然洞区，边界环普遍不对应。通用 D3 需要重叠带约束重网格化方案——按验收标准不伪造成功，交付名保持"通用主重建 + 通用区域提取 + 局部点云候选版"。**D4 决策**：不补做照片重投影接缝混合（前提是已发布补丁，不存在）。
+
+诚实边界：## 真实 GPU 冷跑矩阵与 scratch 发现（2026-11-21 完成）
+
+证据：[d-chain-results.json](../integrated-acceptance-evidence/d-chain-results.json)、[south-cold-matrix](../integrated-acceptance-evidence/south-cold-matrix.json)、[south-single-clean](../integrated-acceptance-evidence/south-cold-matrix-single-clean.json)、[bridge-cold-matrix](../integrated-acceptance-evidence/bridge-cold-matrix.json)、[bridge-single](../integrated-acceptance-evidence/bridge-cold-matrix-single.json)、[bridge-speed-tmp-scratch](../integrated-acceptance-evidence/bridge-speed-tmp-scratch.json)。
+
+| 矩阵 | 双卡稠密中位 | 单卡稠密中位 | 加速比 | 判定 |
+| --- | --- | --- | --- | --- |
+| South 36 张 2000px（standard） | 783.1s（3/3） | 1539.7s（3/3 干净轮） | **1.97×** | 通过 ≥1.7× 门槛 |
+| Bridge 100 张 3000px（standard） | 3158.3s（3/3） | 6277.8s（3/3） | **1.988×** | 通过 ≥1.7× 门槛 |
+
+两个场景复现 1.97–1.99×，与历史 South 1.99× 一致——双卡加速结论现在是跨场景、多轮次的复现结果。
+
+**speed 画像与 scratch 发现**：speed 双卡 3 轮在 NFS scratch 上未复现 48 分钟（单次稠密迭代 16s vs 历史 4.8s，3.4× 膨胀）；对照实验把 `SCRATCH_DIR` 指向本地盘后，稠密 **1960.2s ≈ C01 的 1965.4s**、整轮 **50.7 分钟 ≈ C01 的 48 分钟**——**NFS scratch I/O 是根因**（历史环境 scratch 全在 /tmp 本地盘）。部署要点：`SCRATCH_DIR` 必须指向本地盘；文件损坏类 slowdown 也应先查 scratch 位置。
+
+**验收过程中的操作事故（全部如实记录）**：alembic upgrade 误指默认历史库（可加性迁移，已备份核实）；验收环境多 Worker 残留导致任务被错误配置的 Worker 抢占（ South 单卡臂与 speed 第 1 轮受影响，均已作废重测）；两个 speed 矩阵实例竞争 GPU（终止其一）；孤儿 patch_match 进程占用 GPU（已清理）。
+
+诚实边界：诚实边界：speed 画像的速度/质量数字仍是 Bridge 证据，不是通用保证；网格补丁的父侧保留是面片级近似（非解析平面求交），补丁边界为三角形锯齿；种子三图模式保留为历史兼容路径，不再是通用主路径。历史站点（`18082`/`18469`/`18479`）未被本轮源码覆盖。

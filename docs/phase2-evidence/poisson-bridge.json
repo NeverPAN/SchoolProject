@@ -1,0 +1,31 @@
+{
+  "sha256": "2466eabbca5ba951c5811d7ff1bfde457877aa3374099554b3f56dffb79f9bfb",
+  "depth": 8,
+  "runs": [
+    {
+      "threads": 1,
+      "status": "completed",
+      "seconds": 4.04953617695719,
+      "vertices": 14667,
+      "faces": 27479,
+      "surface_area": 53.83647548164044
+    },
+    {
+      "threads": 4,
+      "status": "completed",
+      "seconds": 3.3801220385357738,
+      "vertices": 14664,
+      "faces": 27477,
+      "surface_area": 53.83437885883149
+    },
+    {
+      "threads": -1,
+      "status": "timeout",
+      "seconds": 90.08190207928419
+    }
+  ],
+  "bidirectional_vertex_p95": [
+    0.0003720773603066529,
+    0.00037714146386666004
+  ]
+}

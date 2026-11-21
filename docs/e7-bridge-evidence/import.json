@@ -1,0 +1,47 @@
+{
+  "project": 1,
+  "experiments": {
+    "L00": {
+      "job": 12,
+      "models": [
+        25
+      ],
+      "artifacts": [
+        {
+          "name": "control-merged.ply",
+          "model_id": 25,
+          "sha256": "d08e58d3c2f81a36204637a6e1f674eb8ee2447eb65912d22dee32d821e6b38e",
+          "source_model_id": null,
+          "bytes": 115010758,
+          "vertex_count": 4259649,
+          "face_count": 0,
+          "point_count": 4259649
+        }
+      ]
+    },
+    "L01": {
+      "job": 13,
+      "models": [
+        26
+      ],
+      "artifacts": [
+        {
+          "name": "candidate-merged.ply",
+          "model_id": 26,
+          "sha256": "c124b1432482dd69c9f0eaaaa45d7174d9b37cba9401e334a26f77adc890f55e",
+          "source_model_id": null,
+          "bytes": 115013188,
+          "vertex_count": 4259739,
+          "face_count": 0,
+          "point_count": 4259739
+        }
+      ]
+    }
+  },
+  "verified_download_ids": [
+    23,
+    24,
+    25,
+    26
+  ]
+}

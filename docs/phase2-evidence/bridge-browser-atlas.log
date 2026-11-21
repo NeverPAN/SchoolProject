@@ -1,0 +1,8 @@
+I20261118 15:18:49.816826 140283387428864 texture_mapping.cc:1104] 26741 / 27041 faces assigned to views
+I20261118 15:18:49.819954 140283387428864 texture_mapping.cc:1127] Atlas size: 32768 x 10594
+atlas 32768x10594 exceeds limit; retrying scale 0.25
+I20261118 15:20:34.214980 139820852146176 texture_mapping.cc:1104] 26741 / 27041 faces assigned to views
+I20261118 15:20:34.218188 139820852146176 texture_mapping.cc:1127] Atlas size: 8192 x 2847
+I20261118 15:20:03.129373 140235453546496 texture_mapping.cc:1104] 26741 / 27041 faces assigned to views
+I20261118 15:20:03.132772 140235453546496 texture_mapping.cc:1127] Atlas size: 16384 x 5379
+atlas 16384x5379 exceeds limit; retrying scale 0.125

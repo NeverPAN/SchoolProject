@@ -1,0 +1,26 @@
+{
+  "project": 3,
+  "job": 3,
+  "status": "SUCCEEDED",
+  "originals": 100,
+  "bytes_uploaded": 920566231,
+  "registered_images": 100,
+  "sparse_points": 56714,
+  "mean_reprojection_error_px": 1.034065,
+  "model_id": 14,
+  "glb_bytes": 14217984,
+  "sha256_download_and_view": "9d091cba74fa4375bf4c03ab74cfe3bb6c173aa3ed2b0ef6440f9e9045ad25ec",
+  "embedded_texture": true,
+  "stage_durations_ms": {
+    "IMAGE_VALIDATION": 2302,
+    "FEATURE_EXTRACTION": 21446,
+    "FEATURE_MATCHING": 50094,
+    "SPARSE_RECONSTRUCTION": 448749,
+    "IMAGE_UNDISTORTION": 28085,
+    "DENSE_RECONSTRUCTION": 1860600,
+    "STEREO_FUSION": 45678,
+    "MESHING": 3547,
+    "TEXTURING": 309709,
+    "EXPORTING": 1244
+  }
+}
