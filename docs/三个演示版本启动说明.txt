@@ -45,3 +45,17 @@
   旧入口同理：-L 127.0.0.1:18000:127.0.0.1:8000；-L 127.0.0.1:18082:127.0.0.1:18081。
 - 浏览器访问 http://127.0.0.1:18439/version.json 核对版本，打开首页，用专用帐号 stage8_reviewer 登录；口令由服务器有权限的成员从 R/test-password 安全读取，不在报告公开。项目 1 源模型 #1 是 ETH3D Bridge 真实网格（27,041 面）；#2 是本轮 API 验收的提取结果（9,465 面）。进入 #1→框选区域→拖拽一块明显有表面的区域→创建区域提取任务→查看任务→返回项目下载结果。先试一次取消，应不创建任务。结果应标为区域提取，源模型仍可下载。
 - 实测：HTTP API + Redis/RQ 的真实网格提取和哈希校验已通过，见 docs/stage8-evidence/real-mesh-api.json；该证据不等于在此地址完成了浏览器操作。网页验收需具备浏览器工具的环境或由组员按上面的步骤复验。此次未替换 18000/18082。
+
+四、常驻集成候选站（新增，2026-11-22 起）
+
+- 地址：http://127.0.0.1:18507/（API 与前端同源；Redis 18508；真实 COLMAP 双 A800，3000 px 主重建）
+- 代码：/data/home/2024090904028/reconstration/integrated-candidate/src（git worktree 冻结提交，版本见 /version.json 的 source_git_head，SPA fallback 可直接访问核对）
+- 环境：/data/home/2024090904028/reconstration/integrated-candidate/（app.db、data/、env.json 环境指纹；scratch 在 /tmp/recon-integrated-candidate-scratch 本地盘）
+- 启停统一用 acceptance_env.sh：
+    bash scripts/acceptance_env.sh --env ../integrated-candidate --backend ../integrated-candidate/src/backend \
+      --port 18507 --redis 18508 --gpu-index "0,1" --dense-size 3000 start|status|stop
+  （进程按 cmdline+environ 双指纹识别，历史站点进程不受影响；stop 前请确认无运行中任务）
+- 演示账号：e2e_reviewer（与 e2e_real6/e2e_user 等历史账号互不通用）；口令在 .demo-private/ 同名私有副本。
+- 演示路径：新建项目 → 上传照片 → standard 全跑（South 36 张约 23 分钟）→ 查看器写实/原色切换 → 框选区域提取 → 局部重建（选 1–32 张新增照片）→ 局部点云候选 / 网格补丁候选 → 回父模型看选区。
+- 验收记录：docs/dev-summary/16-stage-review.md 验收表（真实浏览器端到端行）；证据 docs/integrated-acceptance-evidence/browser-e2e/（截图 + manifest.json 哈希）。
+- 注意：候选站代码由 worktree 冻结，主仓库推进时需 git -C ../integrated-candidate/src checkout <新提交> 并重建 frontend（npm run build）+ 更新 dist/version.json。

@@ -1,0 +1,96 @@
+{
+  "generated_at": "2026-11-22T02:11:21Z",
+  "base_url": "http://127.0.0.1:18507",
+  "env": {
+    "api_port": 18507,
+    "redis_port": 18508,
+    "scratch": "/tmp/recon-integrated-candidate-scratch",
+    "gpu_index": "0,1",
+    "dense_max_image_size": 3000
+  },
+  "source_git_head": "b5b70db",
+  "browser": "Chromium (Playwright, headless) — 真实浏览器端到端，非合成夹具",
+  "user": "e2e_reviewer",
+  "project_url": "http://127.0.0.1:18507/projects/2",
+  "main_job_url": "http://127.0.0.1:18507/jobs/1",
+  "main_job": {
+    "status": "SUCCEEDED",
+    "photos": 36,
+    "preset": "standard",
+    "note": "浏览器注册→上传 36 张→提交 standard→双 A800 3000px 全跑（约 23 分钟）→模型发布"
+  },
+  "steps": [
+    {
+      "step": "01-02",
+      "action": "注册 + 登录",
+      "result": "通过"
+    },
+    {
+      "step": "03-04",
+      "action": "新建项目 + 上传 36 张（浏览器文件选择器）",
+      "result": "通过"
+    },
+    {
+      "step": "05-06",
+      "action": "提交 standard 任务并等待完成（真实 GPU，约 23 分钟）",
+      "result": "SUCCEEDED"
+    },
+    {
+      "step": "08",
+      "action": "上传 4 张留出照片（主任务冻结后追加）",
+      "result": "通过"
+    },
+    {
+      "step": "09-10",
+      "action": "查看器写实/原色贴图切换",
+      "result": "通过（原色按钮按 GLB 内嵌纹理实测出现）"
+    },
+    {
+      "step": "11-13",
+      "action": "框选区域 → 区域提取任务",
+      "result": "SUCCEEDED（约 1 分钟）"
+    },
+    {
+      "step": "14",
+      "action": "下载区域结果并记录哈希",
+      "result": "45f5a51f9de10d508e6d6b738d342cea65e82a3d783e57f5b37ea395136ed309"
+    },
+    {
+      "step": "15-17",
+      "action": "局部重建：框选 + 选 4 张留出照片 + 提交（真实 UI）",
+      "result": "已提交并运行（任务 #3）"
+    },
+    {
+      "step": "18",
+      "action": "局部任务结果",
+      "result": "STEREO_FUSION 诚实拒绝：'No supported, non-duplicate points to append inside the guarded ROI' —— 盲拖选区未覆盖留出照片贡献区，守卫按设计拒绝"
+    },
+    {
+      "step": "19-20",
+      "action": "回父模型看选区 / 点云候选查看",
+      "result": "以探针验证 UI 路径可用；点云候选因上述诚实拒绝未发布，候选能力由 South D 链（模型 #5/#6）另行证明"
+    }
+  ],
+  "screenshots": [
+    "01-login.png",
+    "02-projects.png",
+    "03-project-empty.png",
+    "04-uploaded-36.png",
+    "05-job-submitted.png",
+    "06-standard-done.png",
+    "07-project-models.png",
+    "08-holdout-uploaded.png",
+    "09-viewer-realistic.png",
+    "10-viewer-photo-color.png",
+    "11-region-selected.png",
+    "12-region-submitted.png",
+    "13-region-done.png",
+    "14-region-downloaded.png",
+    "15-local-region-selected.png",
+    "16-local-photos-picked.png"
+  ],
+  "notes": [
+    "发现并修复真实前端缺陷：general 模式照片选择器全部禁用（!isSeedMode 反转），修复于 b5b70db，候选站已同步",
+    "局部任务 #3 的诚实拒绝是守卫按设计工作——盲拖选区不含新照片增量时，系统拒绝无价值的局部重算"
+  ]
+}

@@ -41,3 +41,4 @@ Thumbs.db
 logs/
 *.log
 !docs/**/*.log
+docs/integrated-acceptance-evidence/browser-e2e/region-glb

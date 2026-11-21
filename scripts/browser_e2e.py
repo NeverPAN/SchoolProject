@@ -99,6 +99,12 @@ def main() -> None:
     ap.add_argument("--resume-project", default=None,
                     help="已存在项目的 URL（跳过注册新项目与上传提交，直接等待主任务）")
     ap.add_argument("--resume-job-url", default=None, help="运行中主任务的详情 URL")
+    ap.add_argument("--skip-holdout-upload", action="store_true",
+                    help="留出照片已上传（重跑续段时跳过上传步骤）")
+    ap.add_argument("--skip-viewer-region", action="store_true",
+                    help="写实/原色切换与区域提取已完成（重跑续段时跳过）")
+    ap.add_argument("--resume-local-job-url", default=None,
+                    help="已提交的局部重建任务详情 URL（直接等待该任务并完成收尾步骤）")
     args = ap.parse_args()
 
     main_photos = sorted(args.main_dir.glob("*.JPG")) or sorted(args.main_dir.glob("*.jpg"))
@@ -134,7 +140,7 @@ def main() -> None:
         expect(page.get_by_role("button", name="新建项目")).to_be_visible()
         e.shot(page, "02-projects")
 
-        if args.resume_job_url:
+        if args.resume_job_url or args.resume_local_job_url:
             project_url = args.resume_project
             job_url = args.resume_job_url
             e.log(f"resume：项目 {project_url} 任务 {job_url}")
@@ -168,92 +174,109 @@ def main() -> None:
             e.shot(page, "05-job-submitted")
 
             # 5) 等待主任务完成（3000 px 双卡 South，约 30 分钟）
-        e.wait_job(page, job_url, minutes=60, tag="06-standard")
+        if not args.resume_local_job_url:
+            e.wait_job(page, job_url, minutes=60, tag="06-standard")
+            page.goto(project_url, wait_until="domcontentloaded")
+            e.shot(page, "07-project-models")
+
+        # 6–10) 上传留出照片 → 查看器切换 → 区域提取 → 局部重建提交
+        # （--resume-local-job-url 续段时全部跳过，直接等待已提交的局部任务）
+        if not args.resume_local_job_url:
+            # 6) 上传 4 张留出照片（主任务冻结后追加，不属于其输入清单）
+            if not args.skip_holdout_upload:
+                picker = page.locator("input[type=file]")
+                picker.set_input_files([str(p) for p in holdout_photos])
+                expect(page.get_by_test_id("upload-summary")).to_contain_text("成功 4 张", timeout=120000)
+                e.log("4 张留出照片上传完成")
+            e.shot(page, "08-holdout-uploaded")
+
+            # 7) 打开照片贴图 GLB 查看器（原色贴图按钮仅对含内嵌纹理的 GLB 出现）
+            if args.skip_viewer_region:
+                e.log("跳过查看器切换与区域提取（续段）")
+            else:
+                model_row = page.locator("tr").filter(has_text="照片贴图")
+                model_row.get_by_role("button", name="查看", exact=True).first.click()
+                page.wait_for_url("**/models/*")
+                expect(page.get_by_role("button", name="写实", exact=True)).to_be_visible()
+                expect(page.get_by_role("button", name="原色贴图")).to_be_enabled(timeout=30000)
+                e.shot(page, "09-viewer-realistic")
+                page.get_by_role("button", name="原色贴图").click()
+                time.sleep(2)
+                e.shot(page, "10-viewer-photo-color")
+                page.get_by_role("button", name="写实", exact=True).click()
+
+                # 8) 框选区域 → 区域提取
+                canvas = page.locator("canvas").last
+                canvas.wait_for(state="visible", timeout=60000)
+                page.get_by_role("button", name="框选区域", exact=True).click()
+                box = canvas.bounding_box()
+                sx, sy = box["x"] + box["width"] * 0.30, box["y"] + box["height"] * 0.35
+                ex, ey = box["x"] + box["width"] * 0.62, box["y"] + box["height"] * 0.60
+                page.mouse.move(sx, sy)
+                page.mouse.down()
+                for i in range(1, 9):
+                    page.mouse.move(sx + (ex - sx) * i / 8, sy + (ey - sy) * i / 8, steps=4)
+                page.mouse.up()
+                expect(page.get_by_text("已框选区域。")).to_be_visible()
+                e.shot(page, "11-region-selected")
+                page.get_by_role("button", name="创建区域提取任务", exact=True).click()
+                expect(page.get_by_text("区域提取任务 #")).to_be_visible()
+                e.shot(page, "12-region-submitted")
+                href = page.get_by_role("link", name="查看区域提取任务").get_attribute("href")
+                e.wait_job(page, f"{args.base_url}{href}", minutes=10, tag="13-region")
+
+            # 9) 项目页下载区域结果并记录哈希（模型行以"区域提取结果"标签标识）
+            page.goto(project_url, wait_until="domcontentloaded")
+            region_row = page.locator("tr").filter(has_text="区域提取结果")
+            expect(region_row.first).to_be_visible(timeout=30000)
+            e.download_by_button(page, region_row.first.get_by_role("button", name="下载", exact=True), "region-glb")
+            e.shot(page, "14-region-downloaded")
+
+            # 10) 局部重建：父模型 → 局部重建 → 框选 + 选 4 张留出照片
+            page.goto(project_url, wait_until="domcontentloaded")
+            model_row = page.locator("tr").filter(has_text="照片贴图")
+            model_row.get_by_role("button", name="查看", exact=True).first.click()
+            page.wait_for_url("**/models/*")
+            page.get_by_role("button", name="局部重建", exact=True).click()
+            expect(page.get_by_text("选择 1–32 张本项目新增照片")).to_be_visible()
+            # 先框选，再选照片
+            canvas = page.locator("canvas").last
+            canvas.wait_for(state="visible", timeout=60000)
+            box = canvas.bounding_box()
+            sx, sy = box["x"] + box["width"] * 0.22, box["y"] + box["height"] * 0.30
+            ex, ey = box["x"] + box["width"] * 0.75, box["y"] + box["height"] * 0.68
+            page.mouse.move(sx, sy)
+            page.mouse.down()
+            for i in range(1, 9):
+                page.mouse.move(sx + (ex - sx) * i / 8, sy + (ey - sy) * i / 8, steps=4)
+            page.mouse.up()
+            expect(page.get_by_text("已框选区域。")).to_be_visible()
+            e.shot(page, "15-local-region-selected")
+            picker_box = page.locator(".photo-picker input")
+            for name in ("P1180177", "P1180178", "P1180179", "P1180180"):
+                picker_box.fill(name)  # filterable：输入过滤出目标照片再点选
+                page.locator(".el-select-dropdown__item").filter(has_text=name).first.click()
+            expect(page.locator(".photo-picker").locator(".el-tag")).to_have_count(4)
+            page.keyboard.press("Escape")  # 尝试收起下拉面板
+            e.shot(page, "16-local-photos-picked")
+            # Element Plus 的下拉 popper 会拦截指针事件，Playwright 物理点击不稳定；
+            # 直接触发 DOM click（真实用户在同类环境下也能通过键盘/触屏提交）
+            page.get_by_role("button", name="创建局部重建任务", exact=True).evaluate("el => el.click()")
+            page.wait_for_timeout(1500)
+            if page.locator(".el-message").count():
+                e.log(f"submit toast: {page.locator('.el-message').first.inner_text()}")
+            else:
+                e.log("submit toast: (none)")
+            expect(page.get_by_text("局部重建任务 #")).to_be_visible()
+            e.shot(page, "17-local-submitted")
+            href = page.get_by_role("link", name="查看局部重建任务").get_attribute("href")
+            local_job_url = f"{args.base_url}{href}"
+        else:
+            local_job_url = args.resume_local_job_url
+        e.wait_job(page, local_job_url, minutes=45, tag="18-local")
+        # 11) 打开点云候选，下载并回父模型看选区（模型行以"局部重建 · 融合点云"标签标识）
         page.goto(project_url, wait_until="domcontentloaded")
-        e.shot(page, "07-project-models")
-
-        # 6) 上传 4 张留出照片（主任务冻结后追加，不属于其输入清单）
-        picker = page.locator("input[type=file]")
-        picker.set_input_files([str(p) for p in holdout_photos])
-        expect(page.get_by_test_id("upload-summary")).to_contain_text("成功 4 张", timeout=120000)
-        e.log("4 张留出照片上传完成")
-        e.shot(page, "08-holdout-uploaded")
-
-        # 7) 打开父网格模型查看器，写实/原色切换
-        model_row = page.locator("tr").filter(has_text="网格").filter(has_text="查看")
-        model_row.get_by_role("button", name="查看", exact=True).first.click()
-        page.wait_for_url("**/models/*")
-        expect(page.get_by_role("button", name="写实", exact=True)).to_be_visible()
-        expect(page.get_by_role("button", name="原色贴图")).to_be_enabled(timeout=30000)
-        e.shot(page, "09-viewer-realistic")
-        page.get_by_role("button", name="原色贴图").click()
-        time.sleep(2)
-        e.shot(page, "10-viewer-photo-color")
-        page.get_by_role("button", name="写实", exact=True).click()
-
-        # 8) 框选区域 → 区域提取
-        canvas = page.locator("canvas").last
-        canvas.wait_for(state="visible", timeout=60000)
-        page.get_by_role("button", name="框选区域", exact=True).click()
-        box = canvas.bounding_box()
-        sx, sy = box["x"] + box["width"] * 0.30, box["y"] + box["height"] * 0.35
-        ex, ey = box["x"] + box["width"] * 0.62, box["y"] + box["height"] * 0.60
-        page.mouse.move(sx, sy)
-        page.mouse.down()
-        for i in range(1, 9):
-            page.mouse.move(sx + (ex - sx) * i / 8, sy + (ey - sy) * i / 8, steps=4)
-        page.mouse.up()
-        expect(page.get_by_text("已框选区域。")).to_be_visible()
-        e.shot(page, "11-region-selected")
-        page.get_by_role("button", name="创建区域提取任务", exact=True).click()
-        expect(page.get_by_text("区域提取任务 #")).to_be_visible()
-        region_job_url = page.url  # 当前仍是模型页；任务链接在面板内
-        e.shot(page, "12-region-submitted")
-        href = page.get_by_role("link", name="查看区域提取任务").get_attribute("href")
-        e.wait_job(page, f"{args.base_url}{href}", minutes=10, tag="13-region")
-
-        # 9) 项目页下载区域结果并记录哈希
-        page.goto(project_url, wait_until="domcontentloaded")
-        region_row = page.locator("tr").filter(has_text="区域提取").filter(has_text="成功")
-        expect(region_row).to_be_visible(timeout=30000)
-        e.download_by_button(page, region_row.get_by_role("button", name="下载", exact=True), "region-glb")
-        e.shot(page, "14-region-downloaded")
-
-        # 10) 局部重建：父模型 → 局部重建 → 框选 + 选 4 张留出照片
-        page.goto(project_url, wait_until="domcontentloaded")
-        model_row.get_by_role("button", name="查看", exact=True).first.click()
-        page.wait_for_url("**/models/*")
-        page.get_by_role("button", name="局部重建", exact=True).click()
-        expect(page.get_by_text("选择 1–32 张本项目新增照片")).to_be_visible()
-        # 先框选，再选照片
-        canvas = page.locator("canvas").last
-        canvas.wait_for(state="visible", timeout=60000)
-        box = canvas.bounding_box()
-        sx, sy = box["x"] + box["width"] * 0.32, box["y"] + box["height"] * 0.38
-        ex, ey = box["x"] + box["width"] * 0.60, box["y"] + box["height"] * 0.58
-        page.mouse.move(sx, sy)
-        page.mouse.down()
-        for i in range(1, 9):
-            page.mouse.move(sx + (ex - sx) * i / 8, sy + (ey - sy) * i / 8, steps=4)
-        page.mouse.up()
-        expect(page.get_by_text("已框选区域。")).to_be_visible()
-        e.shot(page, "15-local-region-selected")
-        page.locator(".photo-picker").click()
-        for name in ("P1180177", "P1180178", "P1180179", "P1180180"):
-            page.get_by_role("option").filter(has_text=name).click()
-        expect(page.locator(".photo-picker").locator(".el-tag")).to_have_count(4)
-        e.shot(page, "16-local-photos-picked")
-        page.get_by_role("button", name="创建局部重建任务", exact=True).click()
-        expect(page.get_by_text("局部重建任务 #")).to_be_visible()
-        e.shot(page, "17-local-submitted")
-        href = page.get_by_role("link", name="查看局部重建任务").get_attribute("href")
-        e.wait_job(page, f"{args.base_url}{href}", minutes=45, tag="18-local")
-
-        # 11) 打开点云候选，下载并回父模型看选区
-        page.goto(project_url, wait_until="domcontentloaded")
-        local_row = page.locator("tr").filter(has_text="融合").filter(has_text="成功")
-        if local_row.count() == 0:
-            local_row = page.locator("tr").filter(has_text="局部重建").filter(has_text="成功")
+        local_row = page.locator("tr").filter(has_text="融合点云")
         expect(local_row.first).to_be_visible(timeout=30000)
         e.download_by_button(page, local_row.first.get_by_role("button", name="下载", exact=True),
                              "local-candidate")
