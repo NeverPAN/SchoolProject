@@ -66,7 +66,11 @@
             <el-option
               v-for="photo in projectPhotos" :key="photo.id" :value="photo.id"
               :label="`${photo.original_filename} · #${photo.id}`"
-              :disabled="!isSeedMode || (model?.local_reconstruction_image_ids === undefined && !selectedPhotoIds.includes(photo.id) && selectedPhotoNames.includes(photo.original_filename))"
+              :disabled="isSeedMode
+                ? !requiredPhotoNames.includes(photo.original_filename)
+                : (model?.local_reconstruction_image_ids === undefined
+                    && !selectedPhotoIds.includes(photo.id)
+                    && selectedPhotoNames.includes(photo.original_filename))"
             />
           </el-select>
         </template>
