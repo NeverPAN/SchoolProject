@@ -9,7 +9,8 @@ import pytest
 import trimesh
 
 from app.reconstruction.local_mesh_patch import (boundary_loops, cut_to_box, gap_tolerance_for,
-                                                 mesh_invariants, patch_vertex_colors, stitch_loops)
+                                                 mesh_invariants, outer_box, patch_vertex_colors,
+                                                 stitch_loops)
 
 
 def _box_mesh(extents=(4, 4, 4), center=(0, 0, 0)):
@@ -44,6 +45,16 @@ def test_cut_to_box_returns_none_for_empty_region():
 
 def test_boundary_loops_empty_for_closed_mesh():
     assert boundary_loops(_box_mesh()) == []
+
+
+def test_boundary_loops_weld_glb_style_duplicated_vertices():
+    """GLB 顶点按面复制时，几何共享边不能被误判为边界（真实父网格事故）。"""
+    plane = _grid_plane()
+    duplicated = plane.submesh([np.arange(len(plane.faces))], append=True)  # 每面独立顶点
+    loop_candidates = boundary_loops(cut_to_box(duplicated, np.array([-1.0, -1, -1]), np.array([1.0, 1, 1])))
+    assert loop_candidates, "切割后应有边界环"
+    longest = max(loop_candidates, key=len)
+    assert len(longest) >= 24, f"焊接后主边界环应覆盖完整周界（实得最长环 {len(longest)} 点）"
 
 
 def test_stitch_loops_matches_resampled_boundaries():
@@ -101,6 +112,36 @@ def test_gap_tolerance_scales_with_mesh_edge_length():
     fine = trimesh.creation.icosphere(subdivisions=4, radius=1.0)
     coarse = trimesh.creation.icosphere(subdivisions=0, radius=1.0)
     assert gap_tolerance_for(coarse) > gap_tolerance_for(fine)
+
+
+def test_outer_box_expands_by_band():
+    lo, hi = outer_box(np.array([1.0, 2.0, 3.0]), np.array([4.0, 5.0, 6.0]), 0.5)
+    assert np.allclose(lo, [0.5, 1.5, 2.5]) and np.allclose(hi, [4.5, 5.5, 6.5])
+
+
+def test_gap_tolerance_uses_max_of_both_meshes():
+    fine = trimesh.creation.icosphere(subdivisions=4, radius=1.0)
+    coarse = trimesh.creation.icosphere(subdivisions=0, radius=1.0)
+    assert gap_tolerance_for(fine, coarse) == pytest.approx(gap_tolerance_for(coarse))
+    assert gap_tolerance_for(fine, coarse) > gap_tolerance_for(fine)
+
+
+def test_mesh_invariants_allow_remeshed_band_interior():
+    """v2 语义：外盒内的父面可被过渡带重网格化替换，只要外盒外逐字保留。"""
+    mesh = _box_mesh((6, 6, 6))
+    centers = mesh.triangles_center
+    inside = (np.abs(centers) <= 1.5).all(axis=1)
+    kept = mesh.submesh([np.where(~inside)[0]], append=True)
+    kept.remove_unreferenced_vertices()
+    # stitched 只含外盒外面 + 一个不相干的补丁面（过渡带替换物）
+    patch_face = np.asarray([[0.0, 0.0, 0.0], [0.1, 0.0, 0.0], [0.0, 0.1, 0.0]])
+    stitched = trimesh.Trimesh(
+        vertices=np.vstack([kept.vertices, patch_face]),
+        faces=np.vstack([kept.faces, [[len(kept.vertices), len(kept.vertices) + 1, len(kept.vertices) + 2]]]),
+        process=False)
+    report = mesh_invariants(mesh, stitched, np.array([-1.5, -1.5, -1.5]), np.array([1.5, 1.5, 1.5]))
+    assert report["pass"] is True
+    assert report["outside_faces_missing"] == 0
 
 
 class TestLocalMeshSubmission:

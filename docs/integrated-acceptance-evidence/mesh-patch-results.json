@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-11-22T01:20:00Z",
+  "method": "mesh patch v2' overlap splice（重叠拼接）：补丁=外盒全部源点(含父点) Poisson(trim7) 裁剪到核心盒；核心盒外父面逐字保留；核心盒内贴近补丁壳且远离补丁边缘的父面由补丁取代；缝宽=补丁边缘到存活父面最近距离（逐点实测）",
+  "evolution": [
+    "v1 环-弧长缝合：两场景拒绝（环对应不适定）；复盘发现并修复 GLB 顶点复制破坏边界分析 + 捏点(度数4/6/8)破坏简单环遍历",
+    "v2 重叠带重网格化：'两侧同盒切割边界同位'前提被实测证伪（trim 0/2/4/7 补丁壳均收缩，从不与切割平面形成完整同位边界）",
+    "v2' 重叠拼接：同源曲面交界带天然重合，无需环对应；缝宽作为发布门槛"
+  ],
+  "bridge_region_28_inherited": {
+    "env": "integrated-acceptance.bridge (18497)",
+    "job": {
+      "id": 30,
+      "status": "SUCCEEDED",
+      "stage": null,
+      "error": null
+    },
+    "region": "继承 #28 验证选区（哈希钉扎）",
+    "parent_model": "web GLB #1",
+    "source_cloud": "job-10 local-fused.ply (LOCAL_POINT_FUSION)",
+    "published_model": {
+      "id": 50,
+      "model_type": "mesh",
+      "format": "glb",
+      "faces": 486104,
+      "vertices": 327129,
+      "bytes": 20238856,
+      "download_sha256": "ce52b9e8ae076e2a910df53b1d0047d9b531388b3114343d22814d902aef7304"
+    },
+    "invariants": {
+      "outside_faces_expected": 444394,
+      "outside_faces_missing": 0,
+      "nonmanifold_edges": 0
+    },
+    "slit": {
+      "median": 0.0126,
+      "max": 0.0475,
+      "tolerance": 0.081,
+      "pass": true
+    },
+    "conclusion": "PASS — 首次真实发布的网格补丁子版本"
+  },
+  "south_region_tight": {
+    "env": "integrated-acceptance.south (18487)",
+    "jobs": [
+      22,
+      23
+    ],
+    "region": "分位数紧致选区 #2",
+    "source_cloud": "job-3 local-fused.ply",
+    "best_attempt": {
+      "median_slit": 0.0044,
+      "max_slit": 0.1105,
+      "tolerance": 0.0319,
+      "pass": false
+    },
+    "diagnosis": "280 个边缘点集中于核心盒 +x 面条带（x 2.816..2.862），80% 距原始父面 < 0.05 —— 补丁壳在父洞区因 trim 收缩，洞区残留缝隙 0.11；更低 trim 可填洞但引入推测几何，与诚实原则冲突"
+  },
+  "south_region_central_third": {
+    "env": "integrated-acceptance.south (18487)",
+    "job": 24,
+    "region": "中央三分之一 #1",
+    "source_cloud": "job-6 local-fused.ply",
+    "result": {
+      "median_slit": 0.454,
+      "max_slit": 1.6711,
+      "tolerance": 0.0624,
+      "pass": false
+    },
+    "diagnosis": "该区域融合新增点占比极低（d-chain: 1495/41028），补丁壳大面积收缩远离父面"
+  },
+  "conclusion": "Bridge 真实通过并发布子版本 GLB（模型 #50）；South 两选区得到量化拒绝原因（trim-密度收缩 vs 推测面的根本权衡），不阻塞交付"
+}

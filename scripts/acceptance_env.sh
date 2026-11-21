@@ -22,6 +22,8 @@
 #   --texturer-bin <路径> 默认 /tmp 解包的 CPU 贴图构建（易失，机器重启后需重新
 #                         解包或改指持久路径；不设置则照片贴图功能不可用）
 #   --host <host>         API 监听地址，默认 127.0.0.1（不对外开端口）
+#   --backend <目录>      后端代码目录（含 app/），默认 <仓库>/backend；可指向
+#                         git worktree 的 backend 以冻结运行代码，venv 仍可复用主仓
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -32,9 +34,11 @@ TEXTURER_DEFAULT="/tmp/recon-colmap.oUTYXW/env/bin/colmap"
 ENV_DIR="" PORT="" REDIS_PORT="" SCRATCH="" WORKERS=1 GPU_INDEX="0,1" DENSE_SIZE=3000
 COLMAP_BIN="$COLMAP_DEFAULT" TEXTURER="$TEXTURER_DEFAULT" HOST="127.0.0.1" ACTION=""
 
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --env) ENV_DIR="$(realpath "$2")"; shift 2;;
+    --backend) BACKEND="$(realpath "$2")"; shift 2;;
     --port) PORT="$2"; shift 2;;
     --redis) REDIS_PORT="$2"; shift 2;;
     --scratch) SCRATCH="$(realpath "$2")"; shift 2;;
@@ -198,6 +202,7 @@ do_start() {
   cat >"$ENV_DIR/env.json" <<EOF
 {"api_port": $PORT, "redis_port": $REDIS_PORT, "scratch_dir": "$SCRATCH",
  "gpu_index": "$GPU_INDEX", "dense_max_image_size": $DENSE_SIZE,
+ "backend_dir": "$BACKEND",
  "colmap_bin": "$COLMAP_BIN", "texturer_bin": "$TEXTURER",
  "workers": $WORKERS, "api_pid": $api_real, "redis_pid": $redis_real}
 EOF
