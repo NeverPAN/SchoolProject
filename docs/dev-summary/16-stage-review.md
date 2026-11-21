@@ -41,7 +41,17 @@
 
 | 日期 / 验收人 | 服务 / 版本 / 模型 ID | 操作、视角与风格 | 实测或目测结果 | 证据链接 | 结论与后续 |
 | --- | --- | --- | --- | --- | --- |
-| 待填 | `18469` / C00 #17、C01 #22、R01 #24 | 同视角、写实与原色贴图；顶部用单色／线框复核 | 待填 | 截图或任务日志 | 采用 / 保留候选 / 不采用 |
+| 2026-11-19 / 成员A | `18082` 阶段8隔离平台 | 真实浏览器：注册→上传→重建→查看→下载哈希校验 | 通过（真实浏览器 GUI 断言 + 截图；隔离 HTTP/RQ 回归） | [phase2-acceptance.md](../phase2-acceptance.md) | 通过；遗留项转入集成验收 |
+| 2026-11-20 / 成员A | 隔离回归环境 | phase2 验收缺陷修复后的隔离复测（冻结输入归因、发布失败不破坏旧版、恢复生成唯一后继） | 通过 | [03-quality-round.md](03-quality-round.md) | 通过 |
+| 2026-11-20 / 成员A | C01 组合提速（3 次 PatchMatch、融合 16 线程、贴图 0.125 档） | Bridge 100 张、双卡 3000 px，两组各全新冷跑一次 | 完整冷跑 **73.70→48.00 分钟（−34.9%）**；贴图面率 89.62%→91.62%，网格投影覆盖 96.55%→94.19%（如实记录回退） | [14-combined-cold-run.md](14-combined-cold-run.md)、[13-quality-speed-optimization-results.md](13-quality-speed-optimization-results.md) | 保留 #22 候选；收益不拆分归因 |
+| 2026-11-21 / 成员A、成员B | `18469` 项目 #1 #23 网格 / #24 贴图 GLB（R01） | 顶部单色／线框复核 + 同视角写实/原色对比；目测 | 上部网格投影近点像素 65,447→91,060（**+39.1%**）；新增像素中无近点 4.7%；贴图面率 91.62%→87.83%；成员B反馈顶部还原与原色观感良好 | [15-bridge-roof-audit.md](15-bridge-roof-audit.md) | 保留 #24 候选；未拍到屋面不当成已修复 |
+| 2026-11-21 / 成员B | `18469` #24 原色贴图模式 | 查看器写实↔原色切换目测；原始 GLB 哈希复算 | 原色观感优于写实；下载哈希不变 | [15-bridge-roof-audit.md](15-bridge-roof-audit.md) | 演示优先原色；默认模式未改 |
+| 2026-11-21 / 成员A | `18479` 独立局部平台 | #24 区域提取 + 留出照片局部点云（独立 HTTP/RQ） | 用户网页操作无问题；[E7 平台留出评分](19-viewer-and-platform-holdout.md)通过 | [18-local-platform-review.md](18-local-platform-review.md)、[19-viewer-and-platform-holdout.md](19-viewer-and-platform-holdout.md) | 不替换主线模型 |
+| 2026-11-21 / 成员A | 集成候选（隔离环境，`acceptance_env.sh` 管理） | **双场景 3+3 冷跑矩阵**：Bridge 100 张 3000 px、South 36 张 2000 px，dual/single 各 3 轮全新运行 | Bridge 稠密中位 6277.83→3158.32 s = **1.988×**；South 1539.66→783.14 s = **1.966×**（South 首轮单卡臂被残留双卡 Worker 污染，已按协议作废并重测） | [bridge-cold-matrix.json](../integrated-acceptance-evidence/bridge-cold-matrix.json)、[bridge-cold-matrix-single.json](../integrated-acceptance-evidence/bridge-cold-matrix-single.json)、[south-cold-matrix.json](../integrated-acceptance-evidence/south-cold-matrix.json)、[south-cold-matrix-single-clean.json](../integrated-acceptance-evidence/south-cold-matrix-single-clean.json) | 通过 ≥1.7× 门槛；污染事故促成本轮 Worker 指纹管理脚本 |
+| 2026-11-21 / 成员A | 集成候选 D 链（D1–D4，两场景） | Bridge 3 张 / South 4 张留出照片：注册→局部融合→网格补丁→顶点色 | D1/D2 通过：父模型与父点云 SHA-256 字节级不变、新视角注册 0 失败、父位姿不变；D3/D4 在两场景均**拒绝发布**（父网格天然洞与补点价值区重合，边界环对应不适定） | [d-chain-results.json](../integrated-acceptance-evidence/d-chain-results.json)、[20-integrated-system.md](20-integrated-system.md) | 诚实拒绝按设计生效；重叠带重网格化列入后续工作 |
+| 2026-11-21 / 成员A | speed 画像 + NFS scratch 对照实验 | speed 冷跑 1 轮有效（另 2 轮因双实例竞工作废，接受现状）；同 job 迁移 `/tmp` 本地盘 scratch 重跑稠密 | speed 稠密 1960.2 s ≈ C01 的 1965.4 s（差 0.3%），整轮 50.7 分钟 ≈ 48 分钟；NFS scratch 使单次稠密迭代 4.8 s→16 s（**3.4×**） | [bridge-cold-matrix-speed.json](../integrated-acceptance-evidence/bridge-cold-matrix-speed.json)、[bridge-speed-tmp-scratch.json](../integrated-acceptance-evidence/bridge-speed-tmp-scratch.json) | speed 画像保留；`SCRATCH_DIR` 本地盘列为部署硬性要求 |
+| 2026-11-22 / 成员A | Bridge 验收环境 | `scripts/acceptance_env.sh` stop→start→status 全闭环；真实 PID 捕获、陈旧 PID 指纹确认 | 通过；历史进程（18082/18469 Worker、历史 Redis）零误伤 | [20-integrated-system.md](20-integrated-system.md)、脚本内注释 | 本轮事故（包装 PID、残留 Worker、NFS scratch）统一收口 |
+| 待填 | 常驻集成候选站（真实浏览器端到端） | 注册→上传 South 36 张→standard 全跑→原色切换→区域提取→局部重建（4 张留出）→回父模型→下载哈希 | 待执行 | 待填（browser-e2e 截图 + 哈希） | 见 [20-integrated-system.md](20-integrated-system.md) 后续工作 |
 
 使用时将**实测、估算、用户目测、未验**分开写。示例中的照片贴图面率和投影覆盖量化的是不同现象，都不是几何真值。
 

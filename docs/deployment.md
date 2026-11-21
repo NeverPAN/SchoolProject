@@ -122,3 +122,28 @@ printf 'SECRET_KEY=%s\n' "$(backend/.venv/bin/python -I -c 'import secrets; prin
 若当前 shell 已导出应用变量，展开配置前先打开干净终端，避免环境变量覆盖演示文件。用不同终端启动 `redis-server --bind 127.0.0.1 --port 16379 --save '' --appendonly no`、`bash scripts/run_worker.sh` 和 `bash scripts/run_local_backend.sh --host 127.0.0.1`。后两个终端均需导出上面的 `RECON_ENV_FILE` 和 `BACKEND_PORT`，再访问 `http://127.0.0.1:18000/`。演示结束用 Ctrl+C 停止本次启动的三个前台进程；SQLite 和模型仍保留在 `DEMO_ROOT`，Redis 队列为临时数据。
 
 不交接真实数据库、生产 `.env`、访问令牌、真实账户或无权分享的原始照片。演示包、轮子和模型是交接产物，不提交到 Git。
+
+## 集成候选站部署（3000 px 双卡隔离环境）
+
+集成候选站是常驻的完整系统部署：真实 COLMAP + 双 A800 + 3000 px 主重建、区域提取、通用局部更新。与上面的 mock 演示不同，它要求本地盘 scratch 与 GPU 环境。
+
+```bash
+# 1) 环境目录在仓库外（数据不入 git）；启动统一用 acceptance_env.sh
+ENV=../integrated-candidate
+bash scripts/acceptance_env.sh --env "$ENV" --port 18507 --redis 18508 \
+  --gpu-index "0,1" --dense-size 3000 --workers 1 start
+
+# 2) 状态与健康检查
+bash scripts/acceptance_env.sh --env "$ENV" --port 18507 --redis 18508 status
+
+# 3) 停止（只停止本环境进程；历史站点进程受指纹保护不受影响）
+bash scripts/acceptance_env.sh --env "$ENV" --port 18507 --redis 18508 stop
+```
+
+部署要点：
+
+- **SCRATCH_DIR 必须指向本地盘**（默认 `/tmp/recon-<环境名>-scratch`）。实测 NFS 家目录 scratch 使单次稠密迭代从约 4.8 s 膨胀到约 16 s（3.4×），speed 画像无法复现 48 分钟级整轮；本地盘后稠密 1960.2 s ≈ C01 的 1965.4 s。见 [集成验收证据](integrated-acceptance-evidence/bridge-speed-tmp-scratch.json)。
+- **`frontend/dist/version.json` 指纹**：构建前端后把 `source_git_head`、`api_port`、`mode` 写入 `frontend/dist/version.json`，经 SPA fallback 可从 `http://127.0.0.1:<port>/version.json` 访问，用于答辩时证明"页面来自哪个提交"。
+- **端口隔离**：候选站使用独立 API/Redis 端口（如 18507/18508）；历史站点（18082/18469/18479）保持不动。`acceptance_env.sh` 按 cmdline + environ（DATABASE_URL）双指纹识别进程，陈旧 PID 需指纹确认才可停止。
+- **贴图二进制**：`COLMAP_TEXTURER_BIN` 默认指向 /tmp 解包的 CPU 贴图构建（易失）；机器重启后需重新解包或改指持久路径。
+- **数据目录**：环境目录（app.db、data/）在仓库外，由部署者自行备份；仓库只保留代码与文档证据。
