@@ -11,7 +11,9 @@
       </div>
     </el-header>
     <el-main class="main">
-      <router-view />
+      <router-view v-slot="{ Component, route }">
+        <component :is="Component" :key="route.name === 'model-viewer' ? route.path : undefined" />
+      </router-view>
     </el-main>
   </el-container>
 </template>

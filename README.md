@@ -4,8 +4,8 @@
 系统调用 COLMAP 完成特征提取、特征匹配、相机参数估计、稀疏重建、稠密重建、网格生成，
 并在浏览器中交互展示与下载模型。
 
-> **开发总结（两阶段 + 质量修复轮，图文并茂）**：[docs/dev-summary/00-overview.md](docs/dev-summary/00-overview.md)
-> —— 架构总图、任务生命周期、各阶段测试与结果、问题→解决方案目录、文档规范。
+> **先读：[项目总览](docs/项目总览.md) · [文档目录](docs/目录.md)**
+> 分别用于了解 Bridge 完整迭代主线，以及定位各阶段报告、操作手册与原始证据。
 
 ## 功能总览（P0）
 
@@ -73,20 +73,10 @@ cd frontend && npm run build            # 前端类型检查 + 构建
 
 ## 文档
 
-- [图文用户手册](docs/user-manual.md)
-- [版本管理与优化实验验收](docs/版本管理.md)
-- [三个演示版本启动说明](docs/三个演示版本启动说明.txt)
-- [课程设计报告框架](docs/course-report-outline.md) · [课程设计报告正文初稿](docs/course-report.md)
-
-- `DEVELOPMENT_GUIDE.md` — 项目总指南（需求/架构/流程/验收）
-- `docs/architecture.md` — 系统架构
-- `docs/api-contract.md` — API 契约
-- `docs/database-design.md` — 数据库设计
-- `docs/reconstruction-pipeline.md` — 重建管线与阶段映射
-- `docs/testing-plan.md` — 测试计划与报告
-- `docs/environment-report.md` — 运行环境报告（A800 服务器）
-- `docs/deployment.md` — 部署、备份恢复与离线演示
-- [第二阶段验收报告](docs/phase2-acceptance.md) — 正式数据、在线贴图、故障恢复及性能对照
+- [文档目录](docs/目录.md)：按用途查找全部报告、手册和证据。
+- [集成系统验收标准](docs/集成系统验收标准.md)：通用系统的门槛、协议与交付命名。
+- [项目总览](docs/项目总览.md) · [答辩演示流程](docs/答辩演示流程.md)：Bridge 迭代主线与现场演示步骤。
+- [用户手册](docs/user-manual.md) · [版本管理](docs/版本管理.md)：网页操作、运行版本与恢复入口。
 
 ## 目录结构
 
@@ -110,6 +100,6 @@ cd frontend && npm run build            # 前端类型检查 + 构建
       stores/        Pinia（auth/projects）
       views/         页面（登录/项目/任务/模型）
       three/         ModelViewer.vue、材质/风格预设
-  scripts/           run_*.sh、generate_test_dataset.py、e2e_test.py
+  scripts/           run_*.sh、generate_synthetic_dataset.py、e2e_test.py
   docs/ deploy/ sample-data/ tests/
 ```

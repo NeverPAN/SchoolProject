@@ -68,12 +68,16 @@ export interface Job {
   pipeline_mode: string
   engine_version: string | null
   config: {
-    preset: string
-    matcher: string
+    preset?: string
+    matcher?: string
     enable_dense: boolean
     enable_mesh: boolean
     use_gpu: boolean
     mode: string
+    resolved?: Record<string, unknown> | null
+    preflight?: Record<string, unknown> | null
+    capability?: Record<string, unknown> | null
+    matcher_decision?: string | null
   }
   started_at: string | null
   finished_at: string | null
@@ -114,6 +118,16 @@ export interface ModelDetail extends ModelItem {
   pipeline_mode?: string | null
   display_up?: [number, number, number] | null
   legacy_srgb_vertex_colors: boolean
+  texture_assets?: {
+    primitives_total: number; primitives_with_uv: number; materials_total: number
+    materials_with_base_color_texture: number; texture_count: number
+    embedded_textures: boolean; external_texture_uris: string[]; double_sided_materials: number
+  } | null
+  local_extraction?: { parent_model_id: number; region_id: number; bounds: { min: number[]; max: number[] } } | null
+  local_reconstruction_available?: boolean
+  local_reconstruction_mode?: 'seed' | 'general' | null
+  local_reconstruction_bounds?: { min: number[]; max: number[] } | null
+  local_reconstruction_image_ids?: number[]
 }
 
 // ---------- Auth ----------
@@ -176,8 +190,8 @@ export const imageApi = {
     })
     return Array.isArray(r.data) ? { items: r.data, partial_errors: [] } : r.data
   },
-  async list(projectId: number): Promise<ImageDetail[]> {
-    const r = await api.get(`/projects/${projectId}/images`)
+  async list(projectId: number, signal?: AbortSignal): Promise<ImageDetail[]> {
+    const r = await api.get(`/projects/${projectId}/images`, { signal })
     return r.data
   },
   async remove(id: number): Promise<void> {
@@ -259,8 +273,20 @@ export const modelApi = {
     const r = await api.post(`/models/${id}/regions`, payload)
     return r.data
   },
+  async listRegions(id: number): Promise<{ id: number; bbox_min: number[]; bbox_max: number[]; note: string }[]> {
+    const r = await api.get(`/models/${id}/regions`)
+    return r.data
+  },
   async createRegionExtraction(id: number, regionId: number): Promise<Job> {
     const r = await api.post<Job>(`/models/${id}/local-update`, { region_id: regionId })
+    return r.data
+  },
+  async createLocalReconstruction(id: number, regionId: number, imageIds: number[]): Promise<Job> {
+    const r = await api.post<Job>(`/models/${id}/local-reconstruction`, { region_id: regionId, image_ids: imageIds })
+    return r.data
+  },
+  async createLocalMesh(id: number): Promise<Job> {
+    const r = await api.post<Job>(`/models/${id}/local-mesh`)
     return r.data
   },
 }
@@ -270,6 +296,13 @@ export { errMsg }
 export function isPhotoTexture(model: ModelItem): boolean {
   return model.format.toLowerCase() === 'glb' &&
     (model.stage_origin === 'PHOTO_TEXTURE_UPRIGHT' || model.stage_origin === 'PHOTO_TEXTURE')
+}
+
+/** 阶段 B：原色贴图可用性以 GLB 内容为准；旧记录回退 stage_origin。 */
+export function photoColorAvailable(model: ModelItem & { texture_assets?: ModelDetail['texture_assets'] }): boolean {
+  const assets = model.texture_assets
+  if (assets) return assets.embedded_textures === true && assets.primitives_with_uv > 0
+  return isPhotoTexture(model)
 }
 
 export function fmtSize(n: number): string {

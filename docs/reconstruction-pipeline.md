@@ -66,3 +66,34 @@
 | Poisson depth 8（最终成功配置） | 1709s（第一阶段历史运行） |
 
 第二阶段采用固定 4 线程；正式集的可复现对照见[验收报告](phase2-acceptance.md#同条件-poisson-对照)。
+
+
+## 5. 集成系统：通用配置冻结与质量门槛（2026-11-21 追加）
+
+总规范见[集成系统验收标准](集成系统验收标准.md)。本节记录管线行为的变化；历史阶段表和版本兼容说明仍然有效。
+
+### 5.1 配置冻结（阶段 A1）
+
+- 任务创建时 `job_service.create_job` 经 `reconstruction/profiles.py` 一次性解析并冻结：preset 画像参数、最终匹配策略与 auto 决策理由、稠密最大边、PatchMatch 迭代、融合线程、Poisson 深度/线程/trim、贴图起始档、GPU 索引与二进制路径。执行与断点恢复只读 `config["resolved"]`，环境变量漂移不再改变行为；无 `resolved` 的旧任务回退历史行为。
+- 画像：`fast/standard/high` 语义不变；新增通用 `speed` 画像（PatchMatch 3 次、融合 16 线程、贴图 0.125 起，源自组合提速实测，非场景专用）。
+- 稠密任务的提交门槛：CUDA COLMAP 必须可用（否则 `CUDA_UNAVAILABLE`）；`COLMAP_GPU_INDEX` 请求的每张卡必须真实可见（否则 `GPU_INDEX_UNAVAILABLE`）。不再静默把稠密任务降级为稀疏成功。
+- 提交预检 `_preflight_images` 记录文件缺失/分辨率/质量汇总；视角重叠如实记 `unknown_until_registration`（重叠只能在注册后判定）。
+- 发布清单新增：`engine.binary_sha256`（引擎二进制）、`resolved_params.matcher_decision/poisson_threads/poisson_trim`、`preflight`、`capability`、`mesh_quality`。
+
+### 5.2 质量管线（阶段 A2）
+
+- MESHING 产出面支撑代理指标（`mesh_quality.py`：面质心到融合点云最近距离，半径 = 3× 中位最近邻间距），按 display_up 分 bottom/middle/top 带。
+- 上部带支撑 <0.7 且 trim>8 时自动生成 trim-1 候选；仅当"支撑更高且无支撑比例增长 ≤3pp"才采用（`choose_mesh_candidate`）。裁定理由与两个候选指标进入 MESHING manifest 与发布清单。
+- 相机最高高度未进入点云上部 20% 高度带 → 任务警告"顶部视角不足，顶部重建结果不可验证"。未观测表面不会被 trim 或外插冒充为已还原。
+- 贴图阶段元数据新增 `registered_photos` 与 `implementation.binary_sha256`；失败仍明确 fallback，不冒充完整。
+
+### 5.3 局部更新（阶段 D）
+
+| 模式 | 输入 | 阶段 | 输出与门槛 |
+| --- | --- | --- | --- |
+| `local_update`（历史） | 已有网格 + 选区 | LOCAL_UPDATE | 独立裁剪 GLB；报告裁剪语义/父哈希/开放边界/贴图资产 |
+| `local_reconstruct`（历史种子模式） | 固定种子 + 恰好 3 张 | 校验→稠密→融合 | 点云候选；保留为历史兼容，不是通用主路径 |
+| `local_general`（D1/D2） | 任意 1–32 张新增照片 + 选区 | IMAGE_VALIDATION→REGISTER_NEW_VIEWS→IMAGE_UNDISTORTION→DENSE_RECONSTRUCTION→STEREO_FUSION→EXPORTING | 注册逐张报告（0 张即失败；父位姿逐字保持）；点云候选，父记录前缀逐字节不变 |
+| `local_mesh`（D3/D4） | 局部点云候选 | IMAGE_VALIDATION→LOCAL_MESH_CUT→LOCAL_MESHING→LOCAL_STITCH→VALIDATION→EXPORTING | 补丁 GLB；父侧 UV/材质字节保留，补丁为融合色顶点；不变量（区域外面逐字保留、非流形=0、缝隙≤3×中位边长）不过则只写诊断报告 |
+
+注册复用 COLMAP `feature_extractor` + `matches_importer`（显式配对）+ `image_registrator`（3.13 提供）；稠密视角集 = 注册新视角 + 距选区最近 ≤16 张父视角。

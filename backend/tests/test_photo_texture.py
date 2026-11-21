@@ -92,6 +92,7 @@ def test_orientation_requires_vertical_support_and_independent_sign():
 def stages(tmp_path):
     ctx = pipeline.PipelineContext.__new__(pipeline.PipelineContext)
     ctx.config = {}
+    ctx.texture_start_scale = 0.5
     ctx.params = pipeline.PRESET_PARAMS["standard"]
     ctx.stage_fingerprints = {"IMAGE_UNDISTORTION": "undistortion", "MESHING": "meshing", "SPARSE_RECONSTRUCTION": "sparse"}
     ctx.job_inputs_sha = "inputs"
@@ -134,7 +135,8 @@ def test_baker_reduces_scale_for_oversized_photo_atlas(tmp_path, monkeypatch):
     assert struct.unpack(">II", (root / "selected" / "texture.png").read_bytes()[16:24]) == (8000, 6000)
 
 
-def test_baker_fails_closed_if_all_atlas_scales_are_oversized(tmp_path, monkeypatch):
+@pytest.mark.parametrize("start_scale", [0.5, 0.125])
+def test_baker_fails_closed_if_all_atlas_scales_are_oversized(tmp_path, monkeypatch, start_scale):
     from PIL import Image
 
     workspace, mesh, root = tmp_path / "dense", tmp_path / "mesh.ply", tmp_path / "outputs"
@@ -146,14 +148,18 @@ def test_baker_fails_closed_if_all_atlas_scales_are_oversized(tmp_path, monkeypa
 
     monkeypatch.setattr(texturer.subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=0, stdout="--workspace_path --input_path --output_path --MeshTextureMapping.num_threads --MeshTextureMapping.texture_scale_factor --MeshTextureMapping.atlas_patch_padding"))
 
+    attempts = []
+
     def run(self, args, log, callback, timeout_s):
+        attempts.append(float(args[args.index("--MeshTextureMapping.texture_scale_factor") + 1]))
         output = Path(args[args.index("--output_path") + 1])
         (output / "texture.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR" + struct.pack(">II", 14000, 13000))
         (output / "mesh.ply").write_text("mesh")
 
     monkeypatch.setattr(texturer.ColmapAdapter, "run_command", run)
     with pytest.raises(ValueError, match="尺寸上限"):
-        texturer.bake_texture("fake", workspace, mesh, root, root / "texture.log", lambda: None)
+        texturer.bake_texture("fake", workspace, mesh, root, root / "texture.log", lambda: None, start_scale=start_scale)
+    assert attempts == [scale for scale in texturer.TEXTURE_SCALES if scale <= start_scale]
 
 
 @pytest.mark.parametrize("up,origin", [(None, PHOTO_NATIVE), ([0, -1, 0], PHOTO_STAGE)])
@@ -163,7 +169,8 @@ def test_texture_stage_registers_additive_artifact_and_reuses_verified_checkpoin
     monkeypatch.setattr(texturer, "resolve_texturer", lambda name: str(source))
     bakes = []
 
-    def bake(*args):
+    def bake(*args, start_scale):
+        assert start_scale == 0.5
         bakes.append(args)
         return baked
 

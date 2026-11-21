@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from app.models.entities import (
     Image,
     JobStageEvent,
     Model,
+    ModelRegion,
     Project,
     ReconstructionJob,
 )
@@ -86,6 +88,36 @@ def _resolve_mode(requested: str | None) -> str:
     return mode
 
 
+def _preflight_images(images: list[Image]) -> dict:
+    """A1 提交预检：文件可读性、分辨率摘要与提示性质量汇总。
+
+    视角重叠只能在特征注册后判定，这里如实标注 unknown，不用代理冒充结论。
+    """
+    missing = [img.original_filename for img in images if not Path(img.stored_path).is_file()]
+    sizes = [(img.width, img.height) for img in images if img.width > 0 and img.height > 0]
+    quality: dict[str, int] = {}
+    for img in images:
+        quality[img.quality_status] = quality.get(img.quality_status, 0) + 1
+    warnings = []
+    if quality.get("warning"):
+        warnings.append(f"{quality['warning']} 张图片质量检查有警告（低分辨率/模糊/曝光），详见图片管理页")
+    if quality.get("invalid"):
+        warnings.append(f"{quality['invalid']} 张图片质量检查失败，可能无法参与重建")
+    small = [name for (img, (w, h)) in zip(images, sizes) for name in [img.original_filename] if w < 640 or h < 480]
+    if small:
+        warnings.append(f"{len(small)} 张图片分辨率低于 640x480：{'、'.join(small[:5])}{'…' if len(small) > 5 else ''}")
+    return {
+        "image_count": len(images),
+        "total_bytes": sum(img.file_size for img in images),
+        "min_resolution": min(sizes) if sizes else None,
+        "max_resolution": max(sizes) if sizes else None,
+        "quality_summary": quality,
+        "missing_files": missing,
+        "warnings": warnings,
+        "view_overlap": "unknown_until_registration",
+    }
+
+
 def create_job(
     db: Session,
     project,
@@ -95,22 +127,59 @@ def create_job(
     enable_mesh: bool,
     *, status: str = "CREATED", experiment_name: str | None = None,
 ) -> ReconstructionJob:
-    settings = get_settings()
     mode = _resolve_mode(None)
     _lock_project(db, project.id)
     if _other_active(db, project.id):
         raise ConflictError("该项目已有进行中的重建任务，请等待其结束")
-    n_images = db.scalar(select(func.count(Image.id)).where(Image.project_id == project.id)) or 0
-    if n_images < 3:
+    images = list(db.scalars(select(Image).where(Image.project_id == project.id).order_by(Image.id)))
+    if len(images) < 3:
         raise ValidationError("项目图片不足 3 张，无法重建")
+
+    # A1 提交预检：缺失/不可读文件在提交时直接失败，而不是排队后才报错。
+    preflight = _preflight_images(images)
+    if preflight["missing_files"]:
+        raise ValidationError(
+            f"输入文件缺失：{'、'.join(preflight['missing_files'][:5])}，请重新上传后再提交任务",
+            code="INPUT_FILES_MISSING",
+        )
+
+    # A1 配置冻结：preset/画像/环境一次解析，执行与恢复只读取这份结果。
+    from app.reconstruction.profiles import gpu_capability_report, resolve_job_config
+
+    frozen = resolve_job_config(preset, matcher, enable_dense, enable_mesh, mode,
+                                filenames=[img.original_filename for img in images])
+    resolved = frozen["resolved"]
+
+    # A1 能力门槛：稠密需要 CUDA COLMAP；请求的每张 GPU 都必须真实可见。
+    # 不再静默把稠密任务降级为稀疏成功。
+    capability: dict | None = None
+    if mode == "colmap" and enable_dense:
+        capability = gpu_capability_report(resolved["colmap_bin"])
+        if not capability["colmap_has_cuda"]:
+            raise ValidationError(
+                "当前 COLMAP 为 CPU 构建（无 CUDA），无法执行稠密重建。"
+                "请安装 CUDA 版 COLMAP，或改用不需要稠密的稀疏任务",
+                code="CUDA_UNAVAILABLE",
+            )
+        if capability["all_requested_gpus_visible"] is False:
+            raise ValidationError(
+                f"GPU 配置不可用：COLMAP_GPU_INDEX={resolved['gpu_index']} 请求了 "
+                f"{capability['requested_gpu_index']}，但本机仅可见 {capability['visible_gpu_count']} 张 GPU。"
+                "请调整 COLMAP_GPU_INDEX 或更换执行环境",
+                code="GPU_INDEX_UNAVAILABLE",
+            )
 
     config = {
         "preset": preset,
         "matcher": matcher,
         "enable_dense": bool(enable_dense),
         "enable_mesh": bool(enable_mesh),
-        "use_gpu": settings.use_gpu if mode == "colmap" else False,
+        "use_gpu": resolved["use_gpu"],
         "mode": mode,
+        "resolved": resolved,
+        "preflight": preflight,
+        "capability": capability,
+        "matcher_decision": frozen["matcher_decision"],
     }
     manifest = image_service.build_input_manifest(db, project)
     job = ReconstructionJob(
@@ -142,6 +211,231 @@ def create_local_update_job(db: Session, model: Model, region_id: int) -> Recons
         pipeline_mode="local_update",
         input_manifest="{}",
     )
+    db.add(job)
+    db.commit()
+    _enqueue_or_fail(db, job.id, "QUEUED")
+    db.refresh(job)
+    return job
+
+
+def local_seed(model: Model) -> dict | None:
+    path = get_settings().local_reconstruction_seed
+    if path is None:
+        return None
+    try:
+        seed = json.loads(path.read_text(encoding="utf-8"))
+        if seed["target_model_id"] == model.id and seed["parent_model"]["path"] == model.file_path:
+            return seed
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return None
+
+
+def general_local_available(model: Model) -> bool:
+    """通用局部更新（阶段 D1/D2）可用性：父任务有稀疏检查点和融合点云。"""
+    job = model.job
+    if job is None:
+        return False
+    base = Path(image_service.project_job_dir(model.project, job.id)) / "checkpoints"
+    return ((base / "SPARSE_RECONSTRUCTION" / "model" / "images.bin").is_file()
+            and (base / "MESHING" / "fused-filtered.ply").is_file())
+
+
+def _freeze_local_general(db: Session, model: Model, region: ModelRegion,
+                          selected: list[dict]) -> dict:
+    """D1：为通用局部更新冻结父模型、父稀疏模型、父点云、选区与新增照片。"""
+    from app.reconstruction.local_general import MAX_NEW_IMAGES
+    from app.reconstruction.local_reconstruction import GUARD, SPARSE_FILES
+
+    job = model.job
+    if job is None:
+        raise ValidationError("该模型缺少来源任务，无法冻结父稀疏模型")
+    base = Path(image_service.project_job_dir(model.project, job.id)) / "checkpoints"
+    sparse_dir = base / "SPARSE_RECONSTRUCTION" / "model"
+    parent_database = base / "FEATURE_EXTRACTION" / "database.db"
+    if not parent_database.is_file():
+        raise ValidationError("父模型缺少特征数据库检查点（database.db），无法注册新增照片")
+    sparse_files = {}
+    for name in (*SPARSE_FILES, "rigs.bin", "frames.bin"):
+        path = sparse_dir / name
+        if path.is_file():
+            sparse_files[name] = {"path": str(path), "sha256": _sha256_file(path)}
+    if not SPARSE_FILES.issubset(sparse_files):
+        raise ValidationError("父模型缺少稀疏重建检查点，无法进行局部重建")
+
+    from app.reconstruction.local_reconstruction import _poses
+
+    try:
+        model_names = set(_poses(sparse_dir / "images.bin"))
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise ValidationError("父稀疏模型损坏或不可读") from exc
+    parent_manifest = json.loads(job.input_manifest or "{}").get("images", [])
+    parent_images = []
+    for index, entry in enumerate(parent_manifest):
+        name = f"img_{index:04d}_{_sanitize_stem(entry['filename'])}{Path(entry['filename']).suffix.lower()}"
+        if name not in model_names:
+            raise ValidationError("父稀疏模型与父任务输入清单不一致，无法冻结局部更新")
+        parent_images.append({"name": name, "path": str(Path(entry["stored_path"]).resolve()),
+                              "sha256": entry["checksum"]})
+
+    cloud_path = Path(image_service.project_job_dir(model.project, job.id)) / "checkpoints" / "MESHING" / "fused-filtered.ply"
+    if not cloud_path.is_file():
+        raise ValidationError("父模型缺少融合点云检查点（fused-filtered.ply），无法进行局部点云融合")
+    if not 1 <= len(selected) <= MAX_NEW_IMAGES:
+        raise ValidationError(f"局部更新支持 1–{MAX_NEW_IMAGES} 张新增照片")
+    lo = [region.bbox_min_x, region.bbox_min_y, region.bbox_min_z]
+    hi = [region.bbox_max_x, region.bbox_max_y, region.bbox_max_z]
+    if not all(math.isfinite(a) and math.isfinite(b) and b - a > 2 * GUARD for a, b in zip(lo, hi, strict=True)):
+        raise ValidationError("选区过小或无效：每个维度必须大于 2×保护带（0.06 模型单位）")
+    settings = get_settings()
+    resolved = {
+        "max_features": 8192,
+        "dense_max_image_size": 1600,
+        "patchmatch_iterations": settings.colmap_patchmatch_iterations,
+        "gpu_index": settings.colmap_gpu_index,
+        "fusion_threads": settings.colmap_fusion_threads,
+        "use_gpu": True,
+    }
+    return {
+        "parent_model_id": model.id,
+        "parent_model": {"path": str(Path(model.file_path).resolve()), "sha256": _sha256_file(Path(model.file_path))},
+        "parent_cloud": {"path": str(cloud_path)},
+        "parent_database": {"path": str(parent_database), "sha256": _sha256_file(parent_database)},
+        "parent_sparse": sparse_files,
+        "parent_images": parent_images,
+        "bounds": {"min": lo, "max": hi},
+        "resolved": resolved,
+    }
+
+
+def _job_of(model: Model):
+    return model.job
+
+
+def _sha256_file(path: Path) -> str:
+    import hashlib
+
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(4 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _sanitize_stem(filename: str) -> str:
+    from app.utils.files import sanitize_filename
+
+    return sanitize_filename(Path(filename).stem)
+
+
+def submit_local_reconstruction(db: Session, model: Model, region: ModelRegion, image_ids: list[int]):
+    _lock_project(db, model.project_id)
+    if _other_active(db, model.project_id):
+        raise ConflictError("该项目已有进行中的任务")
+    if region.model_id != model.id or region.user_id != model.project.owner_id:
+        raise NotFoundError("选区不存在")
+    seed = local_seed(model)
+    entries = image_service.build_input_manifest(db, model.project)["images"]
+    selected = [entry for entry in entries if entry["image_id"] in image_ids]
+    if seed is not None:
+        lo = [region.bbox_min_x, region.bbox_min_y, region.bbox_min_z]
+        hi = [region.bbox_max_x, region.bbox_max_y, region.bbox_max_z]
+        if not all(math.isfinite(a) and math.isfinite(b) and l <= a < b <= h and b-a > 0.06
+                   for a,b,l,h in zip(lo,hi,seed["bbox_min"],seed["bbox_max"], strict=True)):
+            raise ValidationError("选区不在已验证范围内，请使用已验证选区")
+        by_sha = {entry["checksum"]:entry["image_id"] for entry in selected}
+        expected = seed["new_view_sha256"]
+        if len(selected) != 3 or len(set(image_ids)) != 3 or set(by_sha) != set(expected.values()):
+            raise ValidationError("请在同一项目上传并选择已校验的 3 张原片 DSC_1290、1291、1292")
+        seed["new_views"] = {name:by_sha[sha] for name,sha in expected.items()}
+        mode = "local_reconstruct"
+        config = dict(mode=mode, preset="standard", matcher="exhaustive", use_gpu=True,
+                      enable_dense=True, enable_mesh=False, region_id=region.id,
+                      target_model_id=model.id, bounds={"min":lo,"max":hi}, seed=seed)
+        experiment_name = f"新增照片局部点云 · #{model.id}"
+    else:
+        # 通用路径（阶段 D1/D2）：任意新增照片 1–32 张，注册到父稀疏模型
+        mode = "local_general"
+        config = _freeze_local_general(db, model, region, selected)
+        config.update(mode=mode, preset="standard", matcher="exhaustive", region_id=region.id,
+                      use_gpu=True, enable_dense=True, enable_mesh=False)
+        experiment_name = f"局部更新 · 新增 {len(selected)} 张照片 · #{model.id}"
+    job = ReconstructionJob(project_id=model.project_id, status="QUEUED", pipeline_mode=mode,
+                            experiment_name=experiment_name, config_json=json.dumps(config),
+                            input_manifest=json.dumps({"images": [dict(e, stored_path=str(Path(e["stored_path"]).resolve()))
+                                                                   for e in selected],
+                                                       "image_count": len(selected)}))
+    db.add(job)
+    db.commit()
+    _enqueue_or_fail(db, job.id, "QUEUED")
+    db.refresh(job)
+    return job
+
+
+def submit_local_mesh(db: Session, model: Model):
+    """阶段 D3/D4：以局部融合点云候选为源，生成父坐标系的网格补丁候选。"""
+    _lock_project(db, model.project_id)
+    if _other_active(db, model.project_id):
+        raise ConflictError("该项目已有进行中的任务")
+    if model.stage_origin != "LOCAL_POINT_FUSION" or model.format != "ply":
+        raise ValidationError("局部网格补丁必须以局部融合点云候选为源")
+    manifest_path = Path(model.file_path).parent / "job_manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValidationError("局部融合点云缺少发布清单，无法确定父版本与选区") from exc
+    if manifest.get("job_id") != model.job_id or manifest.get("pipeline_mode") not in ("local_general", "local_reconstruct"):
+        raise ValidationError("局部融合点云清单与模型不匹配")
+    parent_id, region_id = manifest.get("parent_model_id"), manifest.get("region_id")
+    if type(parent_id) is not int or type(region_id) is not int:
+        raise ValidationError("局部融合点云清单缺少父版本或选区")
+    parent = db.get(Model, parent_id)
+    region = db.get(ModelRegion, region_id)
+    if parent is None or parent.project_id != model.project_id:
+        raise ValidationError("父版本不存在或不在同一项目")
+    if region is None or region.model_id != parent_id or region.user_id != model.project.owner_id:
+        raise ValidationError("选区不存在或不属于父版本")
+    if parent.format != "glb" or not Path(parent.file_path).is_file():
+        raise ValidationError("父版本必须是可读取的 GLB 网格")
+    source_cloud = Path(model.file_path)
+    if not source_cloud.is_file():
+        raise ValidationError("局部融合点云文件缺失")
+    resolved = {"poisson_depth": 8, "poisson_trim": 7, "poisson_threads": 4}
+    config = {
+        "mode": "local_mesh", "region_id": region.id,
+        "parent_model_id": parent.id,
+        "parent_model": {"path": str(Path(parent.file_path).resolve()), "sha256": _sha256_file(Path(parent.file_path))},
+        "source_model_id": model.id,
+        "source_cloud": {"path": str(source_cloud.resolve()), "sha256": _sha256_file(source_cloud)},
+        "bounds": {"min": manifest["resolved_params"]["bbox_min"], "max": manifest["resolved_params"]["bbox_max"]},
+        "resolved": resolved, "preset": "standard", "matcher": "exhaustive",
+        "use_gpu": False, "enable_dense": False, "enable_mesh": False,
+    }
+    if parent.stage_origin == "PHOTO_TEXTURE_UPRIGHT":
+        # D3 需要原生坐标父网格：烘焙 GLB 的正立旋转必须可逆且可核对
+        manifest_path = Path(parent.file_path).parent / "job_manifest.json"
+        try:
+            parent_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise ValidationError("父版本清单缺失，无法恢复原生坐标") from exc
+        up = parent_manifest.get("display_up")
+        if not (isinstance(up, list) and len(up) == 3 and all(isinstance(v, (int, float)) for v in up)):
+            raise ValidationError("父版本清单缺少 display_up，无法恢复原生坐标")
+        base = Path(image_service.project_job_dir(model.project, _job_of(parent).id)) / "checkpoints" / "MESHING"
+        native = base / "parent-native-source.ply"
+        if not native.is_file():
+            native = base / "meshed-poisson.ply"
+        if not native.is_file():
+            raise ValidationError("父版本缺少原生网格检查点（MESHING），无法恢复原生坐标")
+        import trimesh as _trimesh
+
+        native_mesh = _trimesh.load(native, force="mesh", process=False)
+        center = native_mesh.bounds.mean(axis=0).tolist()
+        config["parent_native_mesh"] = {"path": str(native.resolve()), "sha256": _sha256_file(native)}
+        config["parent_display"] = {"up": [float(v) for v in up], "center": center}
+    job = ReconstructionJob(project_id=model.project_id, status="QUEUED", pipeline_mode="local_mesh",
+                            experiment_name=f"局部网格补丁 · 源 #{model.id} · 父 #{parent.id}",
+                            config_json=json.dumps(config), input_manifest="{}")
     db.add(job)
     db.commit()
     _enqueue_or_fail(db, job.id, "QUEUED")
@@ -216,6 +510,8 @@ def request_resume(db: Session, job: ReconstructionJob) -> ReconstructionJob:
         raise ConflictError(f"当前状态 {job.status} 不允许恢复")
     if _other_active(db, job.project_id, exclude_id=job.id):
         raise ConflictError("该项目已有进行中的重建任务，请等待其结束")
+    if job.pipeline_mode in ("local_reconstruct", "local_general"):
+        raise ConflictError("局部重建任务不支持恢复，请提交新任务")
     # 校验输入未变化：与当前项目图片清单对比
     current = image_service.build_input_manifest(db, job.project)
     stored = json.loads(job.input_manifest) if job.input_manifest else None

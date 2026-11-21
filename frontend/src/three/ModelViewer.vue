@@ -23,12 +23,12 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js'
 import { Loading, WarningFilled } from '@element-plus/icons-vue'
 
-export type StylePreset = 'original' | 'morandi' | 'monochrome' | 'wireframe' | 'pointcloud'
+export type StylePreset = 'original' | 'photo-color' | 'morandi' | 'monochrome' | 'wireframe' | 'pointcloud'
 export type BackgroundPreset = 'light' | 'dark' | 'gradient'
 export type RegionSelection = {
   bbox_min: [number, number, number]
   bbox_max: [number, number, number]
-  camera: { position: number[]; target: number[] }
+  camera?: { position: number[]; target: number[] }
 }
 
 const props = defineProps<{
@@ -37,6 +37,7 @@ const props = defineProps<{
   fetchError?: string
   fileFormat: string // 'glb' | 'ply'
   style: StylePreset
+  photoExposure?: number
   displayUp?: [number, number, number] | null
   legacySrgbVertexColors?: boolean
   background: BackgroundPreset
@@ -78,6 +79,18 @@ function clearRegionHelper() {
   regionHelper.geometry.dispose()
   ;(regionHelper.material as THREE.Material).dispose()
   regionHelper = null
+}
+
+function setRegionHelper(bounds: THREE.Box3) {
+  clearRegionHelper()
+  if (!modelRoot) return
+  regionHelper = new THREE.Box3Helper(bounds, 0xff7a00)
+  modelRoot.add(regionHelper)
+}
+
+function showRegion(selection: RegionSelection) {
+  stopDrag()
+  setRegionHelper(new THREE.Box3(new THREE.Vector3(...selection.bbox_min), new THREE.Vector3(...selection.bbox_max)))
 }
 
 function stopDrag() {
@@ -156,8 +169,7 @@ function onPointerUp(ev: PointerEvent) {
   }
   // A flat surface still needs strictly positive thickness for the backend AABB.
   bounds.expandByScalar(Math.max(bounds.getSize(new THREE.Vector3()).length() * 0.005, camera.near * 0.01))
-  regionHelper = new THREE.Box3Helper(bounds, 0xff7a00)
-  modelRoot.add(regionHelper)
+  setRegionHelper(bounds)
   emit('region-selected', {
     bbox_min: bounds.min.toArray(),
     bbox_max: bounds.max.toArray(),
@@ -268,11 +280,12 @@ function disposeObject(root: THREE.Object3D) {
   root.traverse((obj) => {
     const mesh = obj as THREE.Mesh
     if (mesh.geometry) mesh.geometry.dispose()
-    const mat = (mesh as any).material
-    if (Array.isArray(mat)) mat.forEach((m: THREE.Material) => m.dispose())
-    else if (mat) mat.dispose()
-    const original = obj.userData.originalMaterial
-    if (original && original !== mat) (Array.isArray(original) ? original : [original]).forEach((m: THREE.Material) => m.dispose())
+    const materials = new Set<THREE.Material>()
+    for (const value of [mesh.material, obj.userData.originalMaterial]) {
+      if (Array.isArray(value)) value.forEach((m) => materials.add(m))
+      else if (value) materials.add(value)
+    }
+    materials.forEach((material) => material.dispose())
   })
 }
 
@@ -476,6 +489,10 @@ function applyStyle() {
   for (const mesh of meshes) {
     const state = mesh.userData
     if (!state.originalMaterial) state.originalMaterial = mesh.material
+    if (state.photoMaterials) {
+      for (const material of state.photoMaterials) material.dispose()
+      state.photoMaterials = null
+    }
     if (state.styleMaterial) {
       state.styleMaterial.dispose()
       state.styleMaterial = null
@@ -498,6 +515,23 @@ function applyStyle() {
     }
     mesh.visible = props.style !== 'pointcloud'
     if (state.points) state.points.visible = !mesh.visible
+    if (props.style === 'photo-color') {
+      const original = mesh.material
+      const created: THREE.MeshBasicMaterial[] = []
+      const exposure = THREE.MathUtils.clamp(props.photoExposure ?? 0, -1, 1)
+      const unlight = (material: THREE.Material) => {
+        if (!(material instanceof THREE.MeshStandardMaterial) || !material.map) return material
+        const replacement = new THREE.MeshBasicMaterial({
+          map: material.map, color: material.color.clone().multiplyScalar(2 ** exposure),
+          side: material.side, opacity: material.opacity, transparent: material.transparent,
+          alphaTest: material.alphaTest, vertexColors: material.vertexColors, toneMapped: false,
+        })
+        created.push(replacement)
+        return replacement
+      }
+      mesh.material = Array.isArray(original) ? original.map(unlight) : unlight(original)
+      state.photoMaterials = created
+    }
     if (['morandi', 'monochrome', 'wireframe'].includes(props.style)) {
       state.styleMaterial = new THREE.MeshStandardMaterial({
         side: THREE.DoubleSide, wireframe: props.style === 'wireframe',
@@ -527,7 +561,7 @@ function resetView() {
   controls.update()
 }
 
-defineExpose({ resetView, rotateOrientation, restoreOrientation })
+defineExpose({ resetView, rotateOrientation, restoreOrientation, showRegion, clearRegionHelper })
 
 // ---------------------------------------------------------------------------
 // 生命周期
@@ -543,7 +577,7 @@ watch(
 )
 
 watch(
-  () => props.style,
+  () => [props.style, props.photoExposure],
   () => applyStyle(),
 )
 

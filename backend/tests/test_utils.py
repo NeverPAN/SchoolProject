@@ -127,12 +127,15 @@ def test_adapter_passes_gpu_index_to_gpu_stages(tmp_path):
     with patch.object(ColmapAdapter, "run_command", fake_run):
         runner.feature_extraction(tmp_path / "db.db", tmp_path, tmp_path / "log")
         runner.feature_matching(tmp_path / "db.db", "exhaustive", tmp_path / "log")
-        runner.dense_stereo(tmp_path / "dense", tmp_path / "log", max_image_size=2000)
+        runner.dense_stereo(tmp_path / "dense", tmp_path / "log", max_image_size=2000, num_iterations=3)
+        runner.stereo_fusion(tmp_path / "dense", tmp_path / "fused.ply", tmp_path / "log", num_threads=16)
     assert "--FeatureExtraction.gpu_index" in captured[0]
     assert captured[0][captured[0].index("--FeatureExtraction.gpu_index") + 1] == "0,1"
     assert "--FeatureMatching.gpu_index" in captured[1]
     assert "--PatchMatchStereo.gpu_index" in captured[2]
     assert captured[2][captured[2].index("--PatchMatchStereo.gpu_index") + 1] == "0,1"
+    assert captured[2][captured[2].index("--PatchMatchStereo.num_iterations") + 1] == "3"
+    assert captured[3][captured[3].index("--StereoFusion.num_threads") + 1] == "16"
     # 单卡默认值也必须显式传入，保证命令可追溯
     single = ColmapAdapter(sys.executable, True, "COLMAP 3.13.0")
     assert single.gpu_index == "0"

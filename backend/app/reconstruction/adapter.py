@@ -63,6 +63,12 @@ class ColmapAdapter:
         # 3.10+ 将 SiftExtraction/SiftMatching 选项改名为 FeatureExtraction/FeatureMatching
         self._new_option_names = _parse_major_minor(version) >= (3, 10)
 
+    def reapply_version(self, version: str) -> None:
+        """运行时探测到真实版本后刷新选项前缀（本地探测路径先建适配器再解析版本）。"""
+        self.version = version
+        self.engine_identity["version"] = version
+        self._new_option_names = _parse_major_minor(version) >= (3, 10)
+
     @property
     def _extraction_prefix(self) -> str:
         return "FeatureExtraction" if self._new_option_names else "SiftExtraction"
@@ -138,7 +144,8 @@ class ColmapAdapter:
     # ------------------------------------------------------------------
 
     def feature_extraction(self, db_path: Path, image_dir: Path, log_file: Path,
-                           cancel_check=None, max_features: int = 8192) -> None:
+                           cancel_check=None, max_features: int = 8192,
+                           image_list: Path | None = None) -> None:
         args = [
             "feature_extractor",
             "--database_path", str(db_path),
@@ -149,6 +156,9 @@ class ColmapAdapter:
             # SIFT 算法参数在所有版本均使用 SiftExtraction 前缀
             "--SiftExtraction.max_num_features", str(max_features),
         ]
+        if image_list is not None:
+            # 局部更新（D1）：只向既有父数据库追加新图特征，父图关键点索引保持不变
+            args += ["--image_list_path", str(image_list)]
         self.run_command(args, log_file, cancel_check)
 
     def feature_matching(
@@ -165,6 +175,31 @@ class ColmapAdapter:
         ]
         if sub == "sequential_matcher":
             args += ["--SequentialMatching.overlap", "10", "--SequentialMatching.quadratic_overlap", "1"]
+        self.run_command(args, log_file, cancel_check)
+
+    def matches_importer(self, db_path: Path, match_list: Path, log_file: Path,
+                         cancel_check=None) -> None:
+        """阶段 D1：按显式配对列表做特征匹配 + 几何验证（新增照片 × 父照片）。"""
+        args = [
+            "matches_importer",
+            "--database_path", str(db_path),
+            "--match_list_path", str(match_list),
+            "--match_type", "pairs",
+            f"--{self._matching_prefix}.use_gpu", "1" if self.use_gpu else "0",
+            f"--{self._matching_prefix}.gpu_index", self.gpu_index,
+        ]
+        self.run_command(args, log_file, cancel_check)
+
+    def image_registrator(self, db_path: Path, input_model: Path, output_model: Path,
+                          log_file: Path, cancel_check=None) -> None:
+        """阶段 D1：把数据库中未注册的照片注册到既有稀疏模型（保持原位姿不变）。"""
+        output_model.mkdir(parents=True, exist_ok=True)
+        args = [
+            "image_registrator",
+            "--database_path", str(db_path),
+            "--input_path", str(input_model),
+            "--output_path", str(output_model),
+        ]
         self.run_command(args, log_file, cancel_check)
 
     def sparse_mapping(self, db_path: Path, image_dir: Path, out_dir: Path, log_file: Path, cancel_check=None) -> Path:
@@ -198,7 +233,8 @@ class ColmapAdapter:
         ]
         self.run_command(args, log_file, cancel_check)
 
-    def dense_stereo(self, dense_dir: Path, log_file: Path, cancel_check=None, max_image_size: int = -1) -> None:
+    def dense_stereo(self, dense_dir: Path, log_file: Path, cancel_check=None, max_image_size: int = -1,
+                     num_iterations: int = 5) -> None:
         args = [
             "patch_match_stereo",
             "--workspace_path", str(dense_dir),
@@ -206,11 +242,12 @@ class ColmapAdapter:
             "--PatchMatchStereo.geom_consistency", "true",
             "--PatchMatchStereo.max_image_size", str(max_image_size),
             "--PatchMatchStereo.gpu_index", self.gpu_index,
+            "--PatchMatchStereo.num_iterations", str(num_iterations),
         ]
         self.run_command(args, log_file, cancel_check, success_hint=None)
 
     def stereo_fusion(self, dense_dir: Path, out_ply: Path, log_file: Path,
-                      cancel_check=None, max_image_size: int = -1) -> None:
+                      cancel_check=None, max_image_size: int = -1, num_threads: int = -1) -> None:
         out_ply.parent.mkdir(parents=True, exist_ok=True)
         args = [
             "stereo_fusion",
@@ -218,12 +255,14 @@ class ColmapAdapter:
             "--workspace_format", "COLMAP",
             "--input_type", "geometric",
             "--StereoFusion.max_image_size", str(max_image_size),
+            "--StereoFusion.num_threads", str(num_threads),
             "--output_path", str(out_ply),
         ]
         self.run_command(args, log_file, cancel_check)
 
     def poisson_meshing(self, in_ply: Path, out_ply: Path, log_file: Path,
-                        cancel_check=None, quality: int = 10, num_threads: int = 4) -> None:
+                        cancel_check=None, quality: int = 10, num_threads: int = 4,
+                        trim: int = 10) -> None:
         out_ply.parent.mkdir(parents=True, exist_ok=True)
         args = [
             "poisson_mesher",
@@ -231,6 +270,8 @@ class ColmapAdapter:
             "--output_path", str(out_ply),
             "--PoissonMeshing.depth", str(quality),
             "--PoissonMeshing.num_threads", str(num_threads),
+            # trim 越小保留越多近边界/上部网格；过小会增加无支撑外插，由质量门槛裁定
+            "--PoissonMeshing.trim", str(trim),
         ]
         self.run_command(args, log_file, cancel_check)
 

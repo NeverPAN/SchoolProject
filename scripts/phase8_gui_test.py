@@ -52,17 +52,31 @@ def fixture_glb(depths: tuple[float, ...]) -> bytes:
 class Fixture:
     def __init__(self, dist: Path):
         self.dist = dist
-        self.files = {1: fixture_glb((5.0, 7.0)), 2: fixture_glb((7.0,))}
+        self.files = {1: fixture_glb((5.0, 7.0)), 2: fixture_glb((7.0,)), 4: fixture_glb((5.0,)),
+                      3: b"ply\nformat ascii 1.0\nelement vertex 4\nproperty float x\nproperty float y\n"
+                         b"property float z\nend_header\n0 0 0\n1 0 0\n0 1 0\n0 0 1\n"}
         self.saved = []
         self.submitted = []
         self.polls = 0
         self.unexpected = []
 
     def model(self, model_id: int) -> dict:
-        return {"id": model_id, "project_id": 1, "job_id": 9 if model_id == 2 else None,
-                "model_type": "mesh", "format": "glb", "file_size": len(self.files[model_id]),
-                "face_count": 2 if model_id == 2 else 4, "stage_origin": "LOCAL_REGION" if model_id == 2 else None,
-                "created_at": STAMP, "versions": []}
+        archive, point = model_id == 1, model_id == 3
+        data = {"id": model_id, "project_id": 1, "job_id": 9 if model_id == 2 else None,
+                "model_type": "dense_pointcloud" if point else "mesh",
+                "format": "ply" if point else "glb", "file_size": len(self.files[model_id]),
+                "vertex_count": 8 if archive else 0 if point else 4,
+                "point_count": 4 if point else 0, "face_count": 4 if archive else 0 if point else 2,
+                "stage_origin": {1: "PHOTO_TEXTURE", 2: "LOCAL_REGION", 3: "LOCAL_POINT_FUSION"}.get(model_id),
+                "created_at": None if point else STAMP,
+                "versions": [{"id": model_id, "version_number": 1 if archive else 2,
+                              "created_at": STAMP, "change_type": "manual" if archive else "append_images"}]}
+        if archive:
+            data.update(pipeline_mode="experiment", experiment={"code": "R01", "parent": "C01", "scope": "fixture"})
+        if model_id == 2 and self.saved:
+            data["local_extraction"] = {"parent_model_id": 1, "region_id": 4,
+                                        "bounds": {"min": self.saved[0]["bbox_min"], "max": self.saved[0]["bbox_max"]}}
+        return data
 
     def job(self) -> dict:
         done = self.polls >= 2
@@ -80,7 +94,7 @@ class Fixture:
             return
         project = {"id": 1, "name": PROJECT, "description": "", "status": "active", "owner_id": 1,
                    "created_at": STAMP, "updated_at": STAMP, "image_count": 0, "total_image_bytes": 0,
-                   "job_count": int(self.polls > 0), "model_count": 1 + int(self.polls >= 2), "images": []}
+                   "job_count": int(self.polls > 0), "model_count": 1 + 3 * int(self.polls >= 2), "images": []}
         key = (request.method, path.removeprefix("/api/v1"))
         status = 200
         match key:
@@ -93,15 +107,24 @@ class Fixture:
             case "GET", "/projects/1/jobs":
                 body = [self.job()] if self.polls else []
             case "GET", "/projects/1/models":
-                body = [self.model(1)] + ([self.model(2)] if self.polls >= 2 else [])
-            case "GET", "/models/1" | "/models/2":
+                body = [self.model(1)] + ([self.model(i) for i in (2, 3, 4)] if self.polls >= 2 else [])
+            case "GET", "/models/1" | "/models/2" | "/models/3" | "/models/4":
                 body = self.model(int(path.rsplit("/", 1)[-1]))
-            case "GET", "/models/1/file" | "/models/2/file" | "/models/1/download" | "/models/2/download":
-                route.fulfill(body=self.files[int(path.split("/")[-2])], content_type="model/gltf-binary")
+            case "GET", filename if filename.startswith("/models/") and filename.endswith(("/file", "/download")):
+                file_id = int(path.split("/")[-2])
+                route.fulfill(body=self.files[file_id], content_type="application/octet-stream")
                 return
+            case "GET", "/models/1/regions":
+                body = [{"id": 4, "model_id": 1, "bbox_min": [8.6, 19.2, 6.96], "bbox_max": [10.4, 20.8, 7.04],
+                         "note": "历史选区", "created_at": STAMP}] if self.saved else []
             case "POST", "/models/1/regions":
                 self.saved.append(request.post_data_json)
                 status, body = 201, {"id": 4}
+            case "POST", "/models/3/local-mesh":
+                self.submitted.append(request.post_data_json)
+                status, body = 202, {"id": 10, "project_id": 1, "status": "QUEUED", "current_stage": None,
+                                     "progress": 0, "pipeline_mode": "local_mesh", "config": {},
+                                     "created_at": STAMP, "finished_at": None, "events": []}
             case "POST", "/models/1/local-update":
                 self.submitted.append(request.post_data_json)
                 if len(self.submitted) == 1:
@@ -230,12 +253,68 @@ def run(page, fixture: Fixture, output: Path) -> None:
     result = page.get_by_role("row").filter(has_text="区域提取结果")
     expect(result).to_be_visible()
     check_download(page, result.get_by_role("button", name="下载", exact=True), fixture.files[2])
-    source = page.get_by_role("row").filter(has=page.get_by_role("button", name="查看", exact=True)).filter(has_not_text="区域提取结果")
+    source = page.get_by_role("row").filter(has_text="照片贴图")
     check_download(page, source.get_by_role("button", name="下载", exact=True), fixture.files[1])
     result.get_by_role("button", name="查看", exact=True).click()
     expect(page.get_by_text("区域提取结果", exact=True)).to_be_visible()
     expect(enter).to_be_enabled(timeout=15000)
     assert canvas_colors(canvas, output / "10-result.png")[1] > 1000
+    page.get_by_role("link", name="回父模型 #1 看选区").click()
+    expect(page.get_by_role("heading", name="三维模型查看 #1")).to_be_visible()
+    expect(page.get_by_text("区域提取 #2 的原选区 #4")).to_be_visible()
+    expect(enter).to_be_enabled(timeout=15000)
+    assert canvas_colors(canvas, output / "11-parent-roi.png")[0] > 5
+    page.get_by_role("button", name="隐藏选区").click()
+    assert canvas_colors(canvas, output / "12-parent-cleared.png")[0] == 0
+    expect(page.get_by_text("来源版本", exact=True)).to_be_visible()
+    expect(page.get_by_text("C01", exact=True)).to_be_visible()
+    expect(page.get_by_text("登记 #1", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="原色贴图")).to_be_enabled()
+    page.get_by_role("button", name="原色贴图").click()
+    expect(page.get_by_text("预览曝光（EV）", exact=True)).to_be_visible()
+    check_download(page, page.get_by_role("button", name="下载模型"), fixture.files[1])
+    page.screenshot(path=output / "13-archive.png")
+    page.go_back()
+    expect(page.get_by_role("heading", name="三维模型查看 #2")).to_be_visible()
+    expect(page.get_by_text("模型登记时间（UTC）", exact=True)).to_be_visible()
+    expect(page.get_by_text("实验版本", exact=True)).to_have_count(0)
+    page.go_back()
+    point_row = page.get_by_role("row").filter(has_text="局部重建 · 融合点云")
+    check_download(page, point_row.get_by_role("button", name="下载", exact=True), fixture.files[3])
+    point_row.get_by_role("button", name="查看", exact=True).click()
+    expect(page.get_by_text("点云采样点数", exact=True)).to_be_visible()
+    expect(page.get_by_text("三角面数", exact=True)).to_have_count(0)
+    expect(page.get_by_text("未知（未留存）", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="原色贴图")).to_have_count(0)
+    page.get_by_role("button", name="生成局部网格补丁", exact=True).click()
+    expect(page.get_by_text("局部网格补丁任务 #10 已创建。", exact=True)).to_be_visible()
+    page.screenshot(path=output / "14-cloud.png")
+    page.go_back()
+    page.get_by_role("row").filter(has_text="网格").filter(has_not_text="照片贴图").filter(has_not_text="区域提取结果").get_by_role("button", name="查看", exact=True).click()
+    expect(page.get_by_role("heading", name="三维模型查看 #4")).to_be_visible()
+    expect(page.get_by_text("v2 · 追加照片更新", exact=True)).to_be_visible()
+    expect(page.get_by_text("点云采样点数", exact=True)).to_have_count(0)
+    page.screenshot(path=output / "15-ordinary.png")
+    page.go_back()
+    source.get_by_role("button", name="查看", exact=True).click()
+    expect(page.get_by_text("归档时间（UTC）", exact=True)).to_be_visible()
+    expect(page.get_by_text("登记 #1", exact=True)).to_be_visible()
+    expect(page.get_by_text("v2 · 追加照片更新", exact=True)).to_have_count(0)
+    expect(enter).to_be_enabled(timeout=15000)
+    assert canvas_colors(canvas, output / "16-return.png")[0] == 0
+
+    # C：提取模式复用已保存选区（父模型页，历史选区来自此前任务）
+    enter.click()
+    saved_button = page.get_by_role("button", name="使用已保存选区 #4", exact=True)
+    expect(saved_button).to_be_enabled()
+    saved_button.click()
+    expect(page.get_by_text("已框选区域。", exact=True)).to_be_visible()
+    submit.click()
+    assert fixture.saved[-1]["bbox_min"] == [8.6, 19.2, 6.96] and fixture.saved[-1]["bbox_max"] == [10.4, 20.8, 7.04]
+    expect(page.get_by_role("link", name="查看区域提取任务", exact=True)).to_be_visible()
+    page.screenshot(path=output / "17-saved-region.png")
+    expect(page.get_by_role("button", name="框选区域", exact=True)).to_be_enabled()
+    expect(page.get_by_text("区域提取任务 #9 已创建。", exact=True)).to_be_visible()
 
 
 def main() -> None:
@@ -267,7 +346,7 @@ def main() -> None:
             raise
         finally:
             browser.close()
-    print("PASS region drag/miss/outside/cancel, rotated nearest-hit AABB, explicit submission and queue retry, labels, and download hashes")
+    print("PASS region drag/miss/outside/cancel, rotated nearest-hit AABB, explicit submission and queue retry, labels, download hashes, parent ROI, and archive/cloud/ordinary navigation")
 
 
 if __name__ == "__main__":

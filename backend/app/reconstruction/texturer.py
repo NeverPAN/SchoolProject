@@ -34,7 +34,7 @@ def resolve_texturer(configured_bin: str) -> str:
 
 
 def bake_texture(
-    executable: str, workspace: Path, mesh: Path, output: Path, log: Path, cancel_check,
+    executable: str, workspace: Path, mesh: Path, output: Path, log: Path, cancel_check, *, start_scale: float = 0.5,
 ) -> Path:
     """Bake from an existing dense workspace; retry only oversized atlases."""
     cancel_check()
@@ -53,7 +53,8 @@ def bake_texture(
         raise TexturingUnavailable("去畸变照片工作区不完整")
     output.mkdir(parents=True, exist_ok=True)
     size_flag = TEXTURING_OPTIONS.index("--MeshTextureMapping.texture_scale_factor")
-    for attempt, scale in enumerate(TEXTURE_SCALES):
+    scales = TEXTURE_SCALES[TEXTURE_SCALES.index(start_scale):]
+    for attempt, scale in enumerate(scales):
         cancel_check()
         target = output / f"atlas-{attempt}"
         target.mkdir()
@@ -76,10 +77,10 @@ def bake_texture(
             raise ValueError("贴图工具未生成有效 PNG")
         width, height = struct.unpack(">II", header[16:])
         if not min(width, height) or max(width, height) > ATLAS_SIDE_LIMIT:
-            if attempt + 1 == len(TEXTURE_SCALES):
+            if attempt + 1 == len(scales):
                 raise ValueError(f"照片图集超过尺寸上限：{width}×{height}")
             with stage_log.open("a", encoding="utf-8") as f:
-                f.write(f"\natlas {width}x{height} exceeds limit; retrying scale {TEXTURE_SCALES[attempt + 1]}\n")
+                f.write(f"\natlas {width}x{height} exceeds limit; retrying scale {scales[attempt + 1]}\n")
             continue
         destination = output / "selected"
         destination.mkdir(exist_ok=True)

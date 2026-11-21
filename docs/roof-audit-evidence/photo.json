@@ -1,0 +1,24 @@
+{
+  "vertex_count": 307895,
+  "face_count": 449617,
+  "textured_faces": 394914,
+  "face_coverage": 0.8783342266862685,
+  "atlas_size": [
+    8192,
+    4142
+  ],
+  "orientation": "native_manual",
+  "color_space": "srgb",
+  "rotation_xyzw": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotation_center": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "source_up": null
+}

@@ -10,6 +10,8 @@ import json
 import time
 from pathlib import Path
 
+import numpy as np
+
 
 def run(job_id: int, config: dict) -> tuple[list[dict], dict]:
     """执行区域提取：裁剪目标模型到选区包围盒，登记为 stage_origin=LOCAL_REGION。"""
@@ -43,20 +45,38 @@ def run(job_id: int, config: dict) -> tuple[list[dict], dict]:
     )
     region_mesh.remove_unreferenced_vertices()
 
+    # 边界统计：只属于一个三角形的边 = 开放边界（裁剪截面，未封闭）
+    edges_sorted = np.sort(region_mesh.edges_sorted, axis=1)
+    _, edge_counts = np.unique(edges_sorted, axis=0, return_counts=True)
+    boundary_edges = int((edge_counts == 1).sum())
+
     out_dir = Path(project_output_dir(project, job_id))
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "region.glb"
     path.write_bytes(export_glb(trimesh.Scene({"region": region_mesh})))
 
+    # 贴图继承状态以导出文件实测为准，不凭源模型推断
+    from app.reconstruction.glb_assets import inspect_glb
+
+    exported_assets = inspect_glb(path)
+    import hashlib
+
+    parent_sha = hashlib.sha256(Path(model.file_path).read_bytes()).hexdigest()
     report = {
-        "note": "阶段8原型：区域提取（非局部重建）；真正的局部重建可行性研究见 docs/dev-summary/10",
+        "note": "区域提取：按三角面中心裁剪现有网格并导出（非局部重建、非精确切割）；"
+                "真正的局部重建可行性研究见 docs/dev-summary/10",
         "region_id": region.id,
         "target_model_id": model.id,
         "target_model_file": Path(model.file_path).name,
+        "parent_sha256": parent_sha,
+        "crop_semantics": "triangle-centroid",
         "bbox_min": list(bbox_min), "bbox_max": list(bbox_max),
         "source_faces": int(len(mesh.faces)), "source_vertices": int(len(mesh.vertices)),
         "region_faces": int(mask.sum()), "region_vertices": int(len(region_mesh.vertices)),
         "region_face_ratio": round(float(mask.mean()), 6),
+        "boundary_edges": boundary_edges,
+        "boundary_open": bool(boundary_edges > 0),
+        "texture_assets": exported_assets,
         "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
     (out_dir / "region_report.json").write_text(

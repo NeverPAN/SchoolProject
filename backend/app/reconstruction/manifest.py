@@ -42,7 +42,7 @@ def atomic_write_json(path: Path, payload: dict) -> None:
 
 
 def write_manifest(stage_dir: str | Path, stage: str, params: dict, inputs: dict,
-                   files: Sequence[str | Path]) -> dict:
+                   files: Sequence[str | Path], extra: dict | None = None) -> dict:
     root = Path(stage_dir).resolve()
     entries = []
     for p in sorted({(root / entry).resolve() for entry in files}):
@@ -61,6 +61,8 @@ def write_manifest(stage_dir: str | Path, stage: str, params: dict, inputs: dict
         "files": entries,
         "completed_at": datetime.now(timezone.utc).isoformat(),
     }
+    if extra:
+        manifest["extra"] = extra
     atomic_write_json(root / "manifest.json", manifest)
     return manifest
 

@@ -1,0 +1,49 @@
+{
+  "scope": "upper 15% of filtered fused cloud by estimated up, cropped horizontal rectangle, not a roof segmentation or geometry truth; near proxy uses 9px dilation; triangular face must have all vertices above cutoff",
+  "upper_cutoff": 0.5866318442343361,
+  "world_projection_x_y_bounds": [
+    [
+      -7.923892883697838,
+      -2.9537249933543674
+    ],
+    [
+      6.607807701231396,
+      2.393277698803818
+    ]
+  ],
+  "pixel_dimensions": [
+    900,
+    450
+  ],
+  "cloud_support_pixels": 119156,
+  "trim": {
+    "10": {
+      "all_faces": 388197,
+      "upper_faces": 148185,
+      "mesh_pixels": 65523,
+      "near_point_pixels": 65447,
+      "far_point_pixels": 76,
+      "p95_center_distance": 0.05891848312940274
+    },
+    "9": {
+      "all_faces": 449617,
+      "upper_faces": 191797,
+      "mesh_pixels": 92401,
+      "near_point_pixels": 91060,
+      "far_point_pixels": 1341,
+      "p95_center_distance": 0.07290765763335216,
+      "added_pixels": 26892,
+      "added_far_pixels": 1265
+    },
+    "8": {
+      "all_faces": 464058,
+      "upper_faces": 200585,
+      "mesh_pixels": 112300,
+      "near_point_pixels": 104562,
+      "far_point_pixels": 7738,
+      "p95_center_distance": 0.08373554023627514,
+      "added_pixels": 46790,
+      "added_far_pixels": 7662
+    }
+  }
+}

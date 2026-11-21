@@ -1,0 +1,907 @@
+{
+  "status": "scored",
+  "retained_experiment": "/tmp/recon-e7-bridge.tpMyjX",
+  "isolated_workspace": "/tmp/recon-e7-holdout.ZLhqmY",
+  "roi_core_bounds_native": [
+    [
+      6.48,
+      -0.75,
+      2.46
+    ],
+    [
+      7.95,
+      -0.38,
+      3.1700000000000004
+    ]
+  ],
+  "parent": "18469/#24 R01; shares C01 filtered point cloud",
+  "predeclared": {
+    "preflight": {
+      "min_shared_roi_tracks": 12,
+      "min_occupied_cells": 4,
+      "median_triangulation_angle_deg": [
+        2,
+        35
+      ]
+    },
+    "dense_gate": {
+      "min_supported_pixels_per_required_view": 500,
+      "min_cells_per_required_view": 6,
+      "min_pixels_per_counted_cell": 20,
+      "max_relative_source_z_residual": 0.01,
+      "max_roundtrip_error_px": 1.0
+    },
+    "roi_grid": "4 x 4 equal world-coordinate cells on core X/Z; clamp upper boundary",
+    "score": {
+      "distance_tolerance_model_units": 0.02,
+      "holdout_voxel_model_units": 0.005,
+      "projection": "core points only; nearest camera-Z (z-buffer) with a 1-pixel Chebyshev splat",
+      "additions_metric": "added core points to required-view union of verified holdout samples; partially visible ROI only"
+    }
+  },
+  "required_holdouts": [
+    "new_DSC_1289.jpg",
+    "new_DSC_1293.jpg"
+  ],
+  "exclusions": {
+    "parent_original_training_count": 100,
+    "parent_dense_verified": {
+      "path": "/tmp/recon-combined.NRRNmN/scratch/users/1/projects/2/jobs/2/work/dense",
+      "config_sha256": "498c00063c143727d1e10f3abcd1982b51f7d81165602d4f9830cca2d8f66887",
+      "reference_count": 100,
+      "source_candidate_count": 100,
+      "automatic_sources": true,
+      "matched_parent_cloud_sha256": "f96be7d6b2e9c9a0c8d7c9839672bb71f8294109db2124e44cdeb46739460f37"
+    },
+    "control": {
+      "config_sha256": "e779c37a444eff474fd3f36ba20351d84720622657a2743b52db77a36e852f2d",
+      "reference_names": [
+        "img_0054_DSC_1233.jpg",
+        "img_0055_DSC_1234.jpg",
+        "img_0056_DSC_1235.jpg",
+        "img_0057_DSC_1236.jpg",
+        "img_0058_DSC_1237.jpg",
+        "img_0059_DSC_1238.jpg",
+        "img_0060_DSC_1239.jpg",
+        "img_0061_DSC_1240.jpg",
+        "img_0062_DSC_1241.jpg",
+        "img_0063_DSC_1242.jpg",
+        "img_0064_DSC_1243.jpg"
+      ],
+      "explicit_source_names": [
+        "img_0054_DSC_1233.jpg",
+        "img_0055_DSC_1234.jpg",
+        "img_0056_DSC_1235.jpg",
+        "img_0057_DSC_1236.jpg",
+        "img_0058_DSC_1237.jpg",
+        "img_0059_DSC_1238.jpg",
+        "img_0060_DSC_1239.jpg",
+        "img_0061_DSC_1240.jpg",
+        "img_0062_DSC_1241.jpg",
+        "img_0063_DSC_1242.jpg",
+        "img_0064_DSC_1243.jpg"
+      ]
+    },
+    "candidate": {
+      "config_sha256": "e8767bd4c9d990c133498822ad2f703dc934d70b596370b7a42dbcfa61fa9e78",
+      "reference_names": [
+        "img_0054_DSC_1233.jpg",
+        "img_0055_DSC_1234.jpg",
+        "img_0056_DSC_1235.jpg",
+        "img_0057_DSC_1236.jpg",
+        "img_0058_DSC_1237.jpg",
+        "img_0059_DSC_1238.jpg",
+        "img_0060_DSC_1239.jpg",
+        "img_0061_DSC_1240.jpg",
+        "img_0062_DSC_1241.jpg",
+        "img_0063_DSC_1242.jpg",
+        "img_0064_DSC_1243.jpg",
+        "new_DSC_1290.jpg",
+        "new_DSC_1291.jpg",
+        "new_DSC_1292.jpg"
+      ],
+      "explicit_source_names": [
+        "img_0054_DSC_1233.jpg",
+        "img_0055_DSC_1234.jpg",
+        "img_0056_DSC_1235.jpg",
+        "img_0057_DSC_1236.jpg",
+        "img_0058_DSC_1237.jpg",
+        "img_0059_DSC_1238.jpg",
+        "img_0060_DSC_1239.jpg",
+        "img_0061_DSC_1240.jpg",
+        "img_0062_DSC_1241.jpg",
+        "img_0063_DSC_1242.jpg",
+        "img_0064_DSC_1243.jpg",
+        "new_DSC_1290.jpg",
+        "new_DSC_1291.jpg",
+        "new_DSC_1292.jpg"
+      ]
+    }
+  },
+  "blocked_unique_view_count": 103,
+  "eligible_registered_unused": [
+    "new_DSC_1286.jpg",
+    "new_DSC_1289.jpg",
+    "new_DSC_1293.jpg",
+    "new_DSC_1295.jpg",
+    "new_DSC_1296.jpg",
+    "new_DSC_1297.jpg",
+    "new_DSC_1298.jpg"
+  ],
+  "registered_pose_file_sha256": "c0fc81414197958b8ec07c417ef23bd6da166a11b5b9826d63d0b486083fe7c8",
+  "registered_tracks_file_sha256": "f7afb4278ce2b300c94fddae4ff61a968010380b20560f15d6bc400be38484a6",
+  "preflight": {
+    "passed": true,
+    "roi_track_count_by_view": {
+      "new_DSC_1286.jpg": 7,
+      "new_DSC_1289.jpg": 37,
+      "new_DSC_1293.jpg": 35,
+      "new_DSC_1295.jpg": 59,
+      "new_DSC_1296.jpg": 66,
+      "new_DSC_1297.jpg": 75,
+      "new_DSC_1298.jpg": 24
+    },
+    "pairs": [
+      {
+        "views": [
+          "new_DSC_1286.jpg",
+          "new_DSC_1289.jpg"
+        ],
+        "shared_roi_tracks": 3,
+        "occupied_roi_cells": 2,
+        "median_triangulation_angle_deg": 0.9085422296336625,
+        "pass": false
+      },
+      {
+        "views": [
+          "new_DSC_1286.jpg",
+          "new_DSC_1293.jpg"
+        ],
+        "shared_roi_tracks": 1,
+        "occupied_roi_cells": 1,
+        "median_triangulation_angle_deg": 3.1669596531810256,
+        "pass": false
+      },
+      {
+        "views": [
+          "new_DSC_1286.jpg",
+          "new_DSC_1295.jpg"
+        ],
+        "shared_roi_tracks": 1,
+        "occupied_roi_cells": 1,
+        "median_triangulation_angle_deg": 5.286103039073287,
+        "pass": false
+      },
+      {
+        "views": [
+          "new_DSC_1286.jpg",
+          "new_DSC_1296.jpg"
+        ],
+        "shared_roi_tracks": 1,
+        "occupied_roi_cells": 1,
+        "median_triangulation_angle_deg": 6.844374789932756,
+        "pass": false
+      },
+      {
+        "views": [
+          "new_DSC_1286.jpg",
+          "new_DSC_1297.jpg"
+        ],
+        "shared_roi_tracks": 1,
+        "occupied_roi_cells": 1,
+        "median_triangulation_angle_deg": 8.915616800396466,
+        "pass": false
+      },
+      {
+        "views": [
+          "new_DSC_1286.jpg",
+          "new_DSC_1298.jpg"
+        ],
+        "shared_roi_tracks": 0,
+        "occupied_roi_cells": 0,
+        "median_triangulation_angle_deg": null,
+        "pass": false
+      },
+      {
+        "views": [
+          "new_DSC_1289.jpg",
+          "new_DSC_1293.jpg"
+        ],
+        "shared_roi_tracks": 20,
+        "occupied_roi_cells": 6,
+        "median_triangulation_angle_deg": 2.1906947445371605,
+        "pass": true
+      },
+      {
+        "views": [
+          "new_DSC_1289.jpg",
+          "new_DSC_1295.jpg"
+        ],
+        "shared_roi_tracks": 21,
+        "occupied_roi_cells": 5,
+        "median_triangulation_angle_deg": 3.9808743410794976,
+        "pass": true
+      },
+      {
+        "views": [
+          "new_DSC_1289.jpg",
+          "new_DSC_1296.jpg"
+        ],
+        "shared_roi_tracks": 18,
+        "occupied_roi_cells": 4,
+        "median_triangulation_angle_deg": 5.402415455633424,
+        "pass": true
+      },
+      {
+        "views": [
+          "new_DSC_1289.jpg",
+          "new_DSC_1297.jpg"
+        ],
+        "shared_roi_tracks": 18,
+        "occupied_roi_cells": 4,
+        "median_triangulation_angle_deg": 7.302847975695865,
+        "pass": true
+      },
+      {
+        "views": [
+          "new_DSC_1289.jpg",
+          "new_DSC_1298.jpg"
+        ],
+        "shared_roi_tracks": 6,
+        "occupied_roi_cells": 1,
+        "median_triangulation_angle_deg": 8.435426037420626,
+        "pass": false
+      },
+      {
+        "views": [
+          "new_DSC_1293.jpg",
+          "new_DSC_1295.jpg"
+        ],
+        "shared_roi_tracks": 22,
+        "occupied_roi_cells": 5,
+        "median_triangulation_angle_deg": 1.910571493566609,
+        "pass": false
+      },
+      {
+        "views": [
+          "new_DSC_1293.jpg",
+          "new_DSC_1296.jpg"
+        ],
+        "shared_roi_tracks": 20,
+        "occupied_roi_cells": 5,
+        "median_triangulation_angle_deg": 3.3384461972784174,
+        "pass": true
+      },
+      {
+        "views": [
+          "new_DSC_1293.jpg",
+          "new_DSC_1297.jpg"
+        ],
+        "shared_roi_tracks": 16,
+        "occupied_roi_cells": 4,
+        "median_triangulation_angle_deg": 5.350988225766541,
+        "pass": true
+      },
+      {
+        "views": [
+          "new_DSC_1293.jpg",
+          "new_DSC_1298.jpg"
+        ],
+        "shared_roi_tracks": 5,
+        "occupied_roi_cells": 1,
+        "median_triangulation_angle_deg": 6.963225155901556,
+        "pass": false
+      },
+      {
+        "views": [
+          "new_DSC_1295.jpg",
+          "new_DSC_1296.jpg"
+        ],
+        "shared_roi_tracks": 43,
+        "occupied_roi_cells": 8,
+        "median_triangulation_angle_deg": 1.511397353639313,
+        "pass": false
+      },
+      {
+        "views": [
+          "new_DSC_1295.jpg",
+          "new_DSC_1297.jpg"
+        ],
+        "shared_roi_tracks": 41,
+        "occupied_roi_cells": 6,
+        "median_triangulation_angle_deg": 3.479828832356891,
+        "pass": true
+      },
+      {
+        "views": [
+          "new_DSC_1295.jpg",
+          "new_DSC_1298.jpg"
+        ],
+        "shared_roi_tracks": 12,
+        "occupied_roi_cells": 2,
+        "median_triangulation_angle_deg": 5.114262592666723,
+        "pass": false
+      },
+      {
+        "views": [
+          "new_DSC_1296.jpg",
+          "new_DSC_1297.jpg"
+        ],
+        "shared_roi_tracks": 47,
+        "occupied_roi_cells": 7,
+        "median_triangulation_angle_deg": 2.0828485436867368,
+        "pass": true
+      },
+      {
+        "views": [
+          "new_DSC_1296.jpg",
+          "new_DSC_1298.jpg"
+        ],
+        "shared_roi_tracks": 15,
+        "occupied_roi_cells": 2,
+        "median_triangulation_angle_deg": 3.7634609807391426,
+        "pass": false
+      },
+      {
+        "views": [
+          "new_DSC_1297.jpg",
+          "new_DSC_1298.jpg"
+        ],
+        "shared_roi_tracks": 20,
+        "occupied_roi_cells": 2,
+        "median_triangulation_angle_deg": 1.7359398298036626,
+        "pass": false
+      }
+    ],
+    "pair_pass_source_graph": {
+      "new_DSC_1289.jpg": [
+        "new_DSC_1293.jpg",
+        "new_DSC_1295.jpg",
+        "new_DSC_1296.jpg",
+        "new_DSC_1297.jpg"
+      ],
+      "new_DSC_1293.jpg": [
+        "new_DSC_1289.jpg",
+        "new_DSC_1296.jpg",
+        "new_DSC_1297.jpg"
+      ],
+      "new_DSC_1295.jpg": [
+        "new_DSC_1289.jpg",
+        "new_DSC_1297.jpg"
+      ],
+      "new_DSC_1296.jpg": [
+        "new_DSC_1289.jpg",
+        "new_DSC_1293.jpg",
+        "new_DSC_1297.jpg"
+      ],
+      "new_DSC_1297.jpg": [
+        "new_DSC_1289.jpg",
+        "new_DSC_1293.jpg",
+        "new_DSC_1295.jpg",
+        "new_DSC_1296.jpg"
+      ]
+    }
+  },
+  "holdout_only_dense_scoring_performed": true,
+  "independent_depth_available": true,
+  "stitch_attempted": false,
+  "scores": {
+    "new_DSC_1289.jpg": {
+      "holdout_sample_voxels": 2291,
+      "arms": {
+        "parent": {
+          "roi_cloud_points": 14323,
+          "holdout_to_cloud": {
+            "median": 0.010144041538850412,
+            "p90": 0.026472536410440246,
+            "fraction_within_0_02": 0.8070711479703186
+          },
+          "holdout_ray_projection": {
+            "covered_pixels": 2247,
+            "verified_pixel_coverage": 0.9807944129201223,
+            "common_pixel_count": 2247,
+            "common_absolute_z_error": {
+              "median": 0.02927292388567615,
+              "p90": 0.19729268280555756,
+              "fraction_within_0_02": 0.3604806408544726
+            }
+          }
+        },
+        "control": {
+          "roi_cloud_points": 15702,
+          "holdout_to_cloud": {
+            "median": 0.009393186768427956,
+            "p90": 0.024776551916083495,
+            "fraction_within_0_02": 0.8398079441292012
+          },
+          "holdout_ray_projection": {
+            "covered_pixels": 2255,
+            "verified_pixel_coverage": 0.9842863378437363,
+            "common_pixel_count": 2247,
+            "common_absolute_z_error": {
+              "median": 0.02966826621256402,
+              "p90": 0.19729268280555756,
+              "fraction_within_0_02": 0.35870048954161105
+            }
+          }
+        },
+        "candidate": {
+          "roi_cloud_points": 15792,
+          "holdout_to_cloud": {
+            "median": 0.009247786808540121,
+            "p90": 0.02478033418572381,
+            "fraction_within_0_02": 0.8402444347446529
+          },
+          "holdout_ray_projection": {
+            "covered_pixels": 2250,
+            "verified_pixel_coverage": 0.9821038847664775,
+            "common_pixel_count": 2247,
+            "common_absolute_z_error": {
+              "median": 0.02997965421740556,
+              "p90": 0.19729268280555756,
+              "fraction_within_0_02": 0.35202492211838005
+            }
+          }
+        }
+      }
+    },
+    "new_DSC_1293.jpg": {
+      "holdout_sample_voxels": 5695,
+      "arms": {
+        "parent": {
+          "roi_cloud_points": 14323,
+          "holdout_to_cloud": {
+            "median": 0.009164210309459454,
+            "p90": 0.02641399943806556,
+            "fraction_within_0_02": 0.820017559262511
+          },
+          "holdout_ray_projection": {
+            "covered_pixels": 5302,
+            "verified_pixel_coverage": 0.9305019305019305,
+            "common_pixel_count": 5302,
+            "common_absolute_z_error": {
+              "median": 0.021219930240526264,
+              "p90": 0.23082754299008088,
+              "fraction_within_0_02": 0.4737834779328555
+            }
+          }
+        },
+        "control": {
+          "roi_cloud_points": 15702,
+          "holdout_to_cloud": {
+            "median": 0.008789855809658246,
+            "p90": 0.024285080399914873,
+            "fraction_within_0_02": 0.8446005267778753
+          },
+          "holdout_ray_projection": {
+            "covered_pixels": 5385,
+            "verified_pixel_coverage": 0.9450684450684451,
+            "common_pixel_count": 5302,
+            "common_absolute_z_error": {
+              "median": 0.02148165269504476,
+              "p90": 0.24491820625613975,
+              "fraction_within_0_02": 0.470199924556771
+            }
+          }
+        },
+        "candidate": {
+          "roi_cloud_points": 15792,
+          "holdout_to_cloud": {
+            "median": 0.008644484615035468,
+            "p90": 0.024793330416541876,
+            "fraction_within_0_02": 0.8435469710272169
+          },
+          "holdout_ray_projection": {
+            "covered_pixels": 5372,
+            "verified_pixel_coverage": 0.9427869427869427,
+            "common_pixel_count": 5302,
+            "common_absolute_z_error": {
+              "median": 0.021753513563573357,
+              "p90": 0.23304591194693153,
+              "fraction_within_0_02": 0.46661637118068655
+            }
+          }
+        }
+      }
+    }
+  },
+  "limits": [
+    "Registration/calibration reuse the parent sparse frame and matched landmarks; the preflight tracks are not independently measured geometry.",
+    "Only holdout photographs can be dense inputs. Dense self-consistency, if measured, is not external ground truth or a test of the roof exterior, seam, or whole model.",
+    "Holdout-to-cloud nearest distance tests coverage and cannot worsen under add-only fusion. The reverse distance on additions can penalize unobserved or occluded surfaces. Point splats are not a full scene visibility test.",
+    "One GPU run and two required reference views of one fixed ROI. The views can support each other, so pixel counts and the two views are not independent statistical replicates.",
+    "Distance and camera Z use native, uncalibrated model units. Holdout-only depth is independent of training photos at the dense stage, not of reused sparse camera calibration or the shared capture setup."
+  ],
+  "mvs": {
+    "status": "maps_generated",
+    "colmap_version": [
+      "COLMAP 3.13.0 -- Structure-from-Motion and Multi-View Stereo",
+      "(Commit Unknown on Unknown with CUDA)"
+    ],
+    "undistort_argv": [
+      "/data/home/2024090904028/.conda/envs/colmap-gpu/bin/colmap",
+      "image_undistorter",
+      "--image_path",
+      "/tmp/recon-e7-holdout.ZLhqmY/holdout-images",
+      "--input_path",
+      "/tmp/recon-e7-holdout.ZLhqmY/pose-only",
+      "--output_path",
+      "/tmp/recon-e7-holdout.ZLhqmY/dense",
+      "--max_image_size",
+      "1600"
+    ],
+    "patchmatch_argv": [
+      "/data/home/2024090904028/.conda/envs/colmap-gpu/bin/colmap",
+      "patch_match_stereo",
+      "--workspace_path",
+      "/tmp/recon-e7-holdout.ZLhqmY/dense",
+      "--PatchMatchStereo.gpu_index",
+      "0,1",
+      "--PatchMatchStereo.max_image_size",
+      "1600",
+      "--PatchMatchStereo.num_iterations",
+      "5",
+      "--PatchMatchStereo.geom_consistency",
+      "1",
+      "--PatchMatchStereo.filter_min_num_consistent",
+      "1",
+      "--PatchMatchStereo.depth_min",
+      "0.9854640396765104",
+      "--PatchMatchStereo.depth_max",
+      "13.296283142788802"
+    ],
+    "reference_and_source_graph": {
+      "new_DSC_1289.jpg": [
+        "new_DSC_1293.jpg",
+        "new_DSC_1295.jpg",
+        "new_DSC_1296.jpg",
+        "new_DSC_1297.jpg"
+      ],
+      "new_DSC_1293.jpg": [
+        "new_DSC_1289.jpg",
+        "new_DSC_1296.jpg",
+        "new_DSC_1297.jpg"
+      ],
+      "new_DSC_1295.jpg": [
+        "new_DSC_1289.jpg",
+        "new_DSC_1297.jpg"
+      ],
+      "new_DSC_1296.jpg": [
+        "new_DSC_1289.jpg",
+        "new_DSC_1293.jpg",
+        "new_DSC_1297.jpg"
+      ],
+      "new_DSC_1297.jpg": [
+        "new_DSC_1289.jpg",
+        "new_DSC_1293.jpg",
+        "new_DSC_1295.jpg",
+        "new_DSC_1296.jpg"
+      ]
+    },
+    "photo_sha256": {
+      "new_DSC_1289.jpg": "5df1f090f1ba817b0370061f9e6c24202b75f555e8ed44774b306c7ea2ae4691",
+      "new_DSC_1293.jpg": "af7e454534a54c867ab58bf5931e260b4829c85568e62806f9f0852e9a9d9c7d",
+      "new_DSC_1295.jpg": "45cad067077651e2f2ae4c6c0f49af8f0ace2219f63b134effdcaae823b637cc",
+      "new_DSC_1296.jpg": "9a144ac4de59740a57be27de48146032ed42242ea2f3ac2d4e6b72302cf322c0",
+      "new_DSC_1297.jpg": "0830ce5d698a4c89555aa3e7ad36ab4f387e775716293d722986c39b6fadc491"
+    },
+    "patchmatch_config_sha256": "55ef17ee64bc3ebb148b655dc603cbf5afc3338581d3fb114d1e214eed7bf14d",
+    "sparse_point_count": 0,
+    "reused_depth_map_count": 0,
+    "depth_range": "ROI camera-Z corner extrema expanded by factors 0.5 and 1.5; no sparse depth priors",
+    "gpu_run": {
+      "pre_start_gpu_snapshots": [
+        {
+          "utc": "2026-11-20T15:17:42.650659+00:00",
+          "gpu_fields": [
+            "index",
+            "name",
+            "utilization_pct",
+            "memory_used_mib"
+          ],
+          "devices": [
+            [
+              "0",
+              "NVIDIA A800 80GB PCIe",
+              "0",
+              "70"
+            ],
+            [
+              "1",
+              "NVIDIA A800 80GB PCIe",
+              "0",
+              "70"
+            ]
+          ],
+          "compute_processes": []
+        },
+        {
+          "utc": "2026-11-20T15:17:43.750064+00:00",
+          "gpu_fields": [
+            "index",
+            "name",
+            "utilization_pct",
+            "memory_used_mib"
+          ],
+          "devices": [
+            [
+              "0",
+              "NVIDIA A800 80GB PCIe",
+              "0",
+              "70"
+            ],
+            [
+              "1",
+              "NVIDIA A800 80GB PCIe",
+              "0",
+              "70"
+            ]
+          ],
+          "compute_processes": []
+        }
+      ],
+      "started": true,
+      "returncode": 0,
+      "wall_seconds": 56.5720590101555
+    },
+    "geometric_depth_sha256": {
+      "new_DSC_1289.jpg": "ec19fb15925dc2e0fdca75458c1376c254553c64e0013480088865f0ae8c5a37",
+      "new_DSC_1293.jpg": "0a5d817ab2dbd4e47d060cac603cf5ccdd339abd64bed769d7e1871fd3dfa6fb",
+      "new_DSC_1295.jpg": "c7a168cfc8f26cf0a0e6e44fb750d84638d90a8358652b21f561caac713ccb18",
+      "new_DSC_1296.jpg": "02c7d781d1a8cba7e08dfe74b55406e826f76e59f891947dd11c0bc69976e0d6",
+      "new_DSC_1297.jpg": "56a0eb35f9a8b88481959f2b09cacb7bd06b867ea5b5364b6f41a5a53fe2f663"
+    },
+    "patchmatch_log_path": "/tmp/recon-e7-holdout.ZLhqmY/patchmatch.log",
+    "patchmatch_log_sha256": "901f99ab071f03a0e3ee9cd436ff30023ff6b4495ea47100fd296d7e6756ed73",
+    "geometric_depth_resolution_xy": [
+      1600,
+      1067
+    ],
+    "depth_source_filter": "COLMAP geometric/photometric consistency enabled, minimum 1 source; evaluator additionally requires an allowed source at \u22641% relative Z residual and \u22641 px back-reprojection."
+  },
+  "dense_support": {
+    "passed": true,
+    "by_view": {
+      "new_DSC_1289.jpg": {
+        "map_pixels": 1707200,
+        "valid_geometric_depth_pixels": 211242,
+        "valid_roi_depth_pixels": 2475,
+        "verified_roi_depth_pixels": 2291,
+        "verified_pixels_by_source": {
+          "new_DSC_1293.jpg": 2204,
+          "new_DSC_1295.jpg": 1927,
+          "new_DSC_1296.jpg": 1889,
+          "new_DSC_1297.jpg": 1646
+        },
+        "roi_grid_supported_pixel_counts": [
+          [
+            0,
+            0,
+            0,
+            25
+          ],
+          [
+            222,
+            289,
+            471,
+            309
+          ],
+          [
+            1,
+            0,
+            0,
+            0
+          ],
+          [
+            189,
+            255,
+            310,
+            220
+          ]
+        ],
+        "counted_grid_cells": 9,
+        "passed": true
+      },
+      "new_DSC_1293.jpg": {
+        "map_pixels": 1707200,
+        "valid_geometric_depth_pixels": 482495,
+        "valid_roi_depth_pixels": 5960,
+        "verified_roi_depth_pixels": 5698,
+        "verified_pixels_by_source": {
+          "new_DSC_1289.jpg": 4890,
+          "new_DSC_1296.jpg": 5166,
+          "new_DSC_1297.jpg": 4674
+        },
+        "roi_grid_supported_pixel_counts": [
+          [
+            0,
+            0,
+            5,
+            171
+          ],
+          [
+            564,
+            701,
+            1180,
+            694
+          ],
+          [
+            3,
+            0,
+            0,
+            2
+          ],
+          [
+            354,
+            656,
+            757,
+            611
+          ]
+        ],
+        "counted_grid_cells": 9,
+        "passed": true
+      },
+      "new_DSC_1295.jpg": {
+        "map_pixels": 1707200,
+        "valid_geometric_depth_pixels": 355053,
+        "valid_roi_depth_pixels": 12334,
+        "verified_roi_depth_pixels": 10613,
+        "verified_pixels_by_source": {
+          "new_DSC_1289.jpg": 6960,
+          "new_DSC_1297.jpg": 9845
+        },
+        "roi_grid_supported_pixel_counts": [
+          [
+            0,
+            0,
+            246,
+            866
+          ],
+          [
+            852,
+            1139,
+            2098,
+            1213
+          ],
+          [
+            2,
+            0,
+            0,
+            0
+          ],
+          [
+            531,
+            1102,
+            1363,
+            1201
+          ]
+        ],
+        "counted_grid_cells": 10,
+        "passed": true
+      },
+      "new_DSC_1296.jpg": {
+        "map_pixels": 1707200,
+        "valid_geometric_depth_pixels": 430039,
+        "valid_roi_depth_pixels": 20972,
+        "verified_roi_depth_pixels": 18439,
+        "verified_pixels_by_source": {
+          "new_DSC_1289.jpg": 8647,
+          "new_DSC_1293.jpg": 12243,
+          "new_DSC_1297.jpg": 16878
+        },
+        "roi_grid_supported_pixel_counts": [
+          [
+            0,
+            0,
+            595,
+            3410
+          ],
+          [
+            1356,
+            1710,
+            3189,
+            1909
+          ],
+          [
+            14,
+            2,
+            0,
+            2
+          ],
+          [
+            953,
+            1655,
+            1915,
+            1729
+          ]
+        ],
+        "counted_grid_cells": 10,
+        "passed": true
+      },
+      "new_DSC_1297.jpg": {
+        "map_pixels": 1707200,
+        "valid_geometric_depth_pixels": 673609,
+        "valid_roi_depth_pixels": 32132,
+        "verified_roi_depth_pixels": 28662,
+        "verified_pixels_by_source": {
+          "new_DSC_1289.jpg": 9601,
+          "new_DSC_1293.jpg": 15024,
+          "new_DSC_1295.jpg": 21330,
+          "new_DSC_1296.jpg": 27302
+        },
+        "roi_grid_supported_pixel_counts": [
+          [
+            0,
+            0,
+            1222,
+            6253
+          ],
+          [
+            2011,
+            2559,
+            4890,
+            2819
+          ],
+          [
+            21,
+            2,
+            5,
+            3
+          ],
+          [
+            1304,
+            2379,
+            2734,
+            2460
+          ]
+        ],
+        "counted_grid_cells": 11,
+        "passed": true
+      }
+    }
+  },
+  "scored_clouds": {
+    "parent": {
+      "path": "/tmp/recon-combined.NRRNmN/scratch/users/1/projects/2/jobs/2/checkpoints/MESHING/fused-filtered.ply",
+      "sha256": "f96be7d6b2e9c9a0c8d7c9839672bb71f8294109db2124e44cdeb46739460f37"
+    },
+    "control": {
+      "path": "/tmp/recon-e7-bridge.tpMyjX/control-merged.ply",
+      "sha256": "d08e58d3c2f81a36204637a6e1f674eb8ee2447eb65912d22dee32d821e6b38e"
+    },
+    "candidate": {
+      "path": "/tmp/recon-e7-bridge.tpMyjX/candidate-merged.ply",
+      "sha256": "c124b1432482dd69c9f0eaaaa45d7174d9b37cba9401e334a26f77adc890f55e"
+    }
+  },
+  "added_points_to_holdout": {
+    "control": {
+      "added_roi_points": 1379,
+      "median": 0.028618220629899223,
+      "p90": 0.11883928277866046,
+      "fraction_within_0_02": 0.37055837563451777
+    },
+    "candidate": {
+      "added_roi_points": 1469,
+      "median": 0.02193079845058023,
+      "p90": 0.05181246678353837,
+      "fraction_within_0_02": 0.46017699115044247
+    }
+  },
+  "scope": {
+    "parent": "R01/#24 associated fused filtered point cloud (C01), not the R01 mesh or GLB",
+    "control": "offline L00, hash matches #25",
+    "candidate": "offline L01, hash matches #26",
+    "not_evaluated": [
+      "HTTP/RQ #28",
+      "roof exterior",
+      "mesh boundary or texture",
+      "full model"
+    ]
+  },
+  "interpretation": {
+    "support_gate_passed": true,
+    "candidate_vs_control": "Mixed: median nearest distance improves marginally on both required views and added points are closer to holdout samples, but P90 nearest distance and common-ray median absolute Z error worsen on both required views. No robust accuracy improvement demonstrated.",
+    "next_step": "Do not stitch or publish replacement geometry on this evidence."
+  }
+}

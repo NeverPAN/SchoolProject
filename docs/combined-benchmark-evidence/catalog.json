@@ -1,0 +1,150 @@
+[
+  {
+    "code": "C00",
+    "name": "Bridge 完整基线",
+    "parent": "B00",
+    "scope": "Bridge 100 张完整冷跑",
+    "source": {
+      "service": "isolated combined benchmark",
+      "job_id": 1,
+      "input_sha256": "7e470fa74f23ee90f45405306c935d8824ecea304e281b488e1af075ba535b35"
+    },
+    "metrics": {
+      "wall_seconds": 4421.825459,
+      "atlas_size": [
+        8192,
+        4184
+      ],
+      "textured_faces": 336782
+    },
+    "parameters": {
+      "max_features": 8192,
+      "matcher_default": "exhaustive",
+      "poisson_depth": 10,
+      "dense_max_image_size": 3000,
+      "gpu_index": "0,1",
+      "patchmatch_iterations": 5,
+      "fusion_threads": -1,
+      "texture_start_scale": 0.5
+    },
+    "display": {
+      "display_up": [
+        -0.0497351472811131,
+        -0.9985591373932583,
+        0.020151036036832905
+      ],
+      "mesh_glb_color_space": "linear"
+    },
+    "files": [
+      {
+        "path": "data/users/1/projects/1/outputs/job-1/sparse_pointcloud.ply",
+        "type": "sparse_pointcloud",
+        "origin": "EXPORTING",
+        "sha256": "ca82913255dac8113c4d4cd637527293dbc06de2de19c775a9ef7644c73d2fd5",
+        "source_model_id": 1
+      },
+      {
+        "path": "data/users/1/projects/1/outputs/job-1/dense_pointcloud.ply",
+        "type": "dense_pointcloud",
+        "origin": "STEREO_FUSION",
+        "sha256": "9c1edc4791059876da4ac906fe7498a3c8c9b2070f1ad530f9fafcfe1e4eefca",
+        "source_model_id": 2
+      },
+      {
+        "path": "data/users/1/projects/1/outputs/job-1/mesh.ply",
+        "type": "mesh",
+        "origin": "MESHING",
+        "sha256": "c01a9c09b052bc65f9d27912b3849435cdee45b4bb9f96fecdf685f3fcf7ac45",
+        "source_model_id": 3
+      },
+      {
+        "path": "data/users/1/projects/1/outputs/job-1/model.glb",
+        "type": "web",
+        "origin": "EXPORTING",
+        "sha256": "9707b0d65ea60074eca86ec63073f36fcc0c3070b31c3d6021f8838c5a3bb632",
+        "source_model_id": 4
+      },
+      {
+        "path": "data/users/1/projects/1/outputs/job-1/model_photo.glb",
+        "type": "web",
+        "origin": "PHOTO_TEXTURE",
+        "sha256": "569d56e72cbee4a0dc5d650db94e2442c1e20790932122dc9ab2a3faa36e263a",
+        "source_model_id": 5
+      }
+    ]
+  },
+  {
+    "code": "C01",
+    "name": "Bridge 组合提速",
+    "parent": "C00",
+    "scope": "Bridge 100 张完整冷跑",
+    "source": {
+      "service": "isolated combined benchmark",
+      "job_id": 2,
+      "input_sha256": "ab3cc7a782446235745103b9a4f0c4419bce5bfe180833f13f364137b57d8f95"
+    },
+    "metrics": {
+      "wall_seconds": 2879.995041,
+      "atlas_size": [
+        8192,
+        3930
+      ],
+      "textured_faces": 355672
+    },
+    "parameters": {
+      "max_features": 8192,
+      "matcher_default": "exhaustive",
+      "poisson_depth": 10,
+      "dense_max_image_size": 3000,
+      "gpu_index": "0,1",
+      "patchmatch_iterations": 3,
+      "fusion_threads": 16,
+      "texture_start_scale": 0.125
+    },
+    "display": {
+      "display_up": [
+        0.013284442426113402,
+        -0.9995103649453175,
+        -0.028329383267297698
+      ],
+      "mesh_glb_color_space": "linear"
+    },
+    "files": [
+      {
+        "path": "data/users/1/projects/2/outputs/job-2/sparse_pointcloud.ply",
+        "type": "sparse_pointcloud",
+        "origin": "EXPORTING",
+        "sha256": "60b479b4ee232cc4029ba6e579433745db73c0341b44875dd4e7c9d84c150304",
+        "source_model_id": 6
+      },
+      {
+        "path": "data/users/1/projects/2/outputs/job-2/dense_pointcloud.ply",
+        "type": "dense_pointcloud",
+        "origin": "STEREO_FUSION",
+        "sha256": "6f31a75cb7f43019ff6d8c90d54f58b60501d861e2e0f63a6a085ce3066c9408",
+        "source_model_id": 7
+      },
+      {
+        "path": "data/users/1/projects/2/outputs/job-2/mesh.ply",
+        "type": "mesh",
+        "origin": "MESHING",
+        "sha256": "5a0cf0385c8eee3bd4228dbe41a405c3031f3cede40acd8ec67ca2bcff1c4e95",
+        "source_model_id": 8
+      },
+      {
+        "path": "data/users/1/projects/2/outputs/job-2/model.glb",
+        "type": "web",
+        "origin": "EXPORTING",
+        "sha256": "5e2c0252df52a93d22562a5b7612a36df8ca1a2e18a32af5cfb3e46bdd48c045",
+        "source_model_id": 9
+      },
+      {
+        "path": "data/users/1/projects/2/outputs/job-2/model_photo.glb",
+        "type": "web",
+        "origin": "PHOTO_TEXTURE",
+        "sha256": "de21fccc77f6eeeaff3a69a5b308a3b2def2ddf9b97c214b39beea68932bce4b",
+        "source_model_id": 10
+      }
+    ]
+  }
+]

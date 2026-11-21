@@ -67,7 +67,7 @@
 | 无支撑外插 | **0.66%** | 6.9% |
 | P95 面心-点距 | 0.0150 | **0.0101** |
 
-同视角渲染（[delaunay-vs-photo-P1180165.png](../../data/phase3-optimization/delaunay-vs-photo-P1180165.png)）：立面覆盖更满，但**大量自由空间飞面**（窗框、柱廊边缘的白色三角片）肉眼可见。另发现 **4.2.1 texturer 无法直接处理带顶点色的 Delaunay PLY**（`vector::_M_default_append` 崩溃；原始无色 PLY 可烘），需额外适配。
+同视角渲染（本机实验图 `data/phase3-optimization/delaunay-vs-photo-P1180165.png`，不随仓库分发）：立面覆盖更满，但**大量自由空间飞面**（窗框、柱廊边缘的白色三角片）肉眼可见。另发现 **4.2.1 texturer 无法直接处理带顶点色的 Delaunay PLY**（`vector::_M_default_append` 崩溃；原始无色 PLY 可烘），需额外适配。
 
 结论：覆盖↑但外插↑↑、飞面缺陷明显、贴图管线需改造——**不满足"质量不降"约束，不采纳**；文献路线记录于 [07](07-related-work.md)。
 

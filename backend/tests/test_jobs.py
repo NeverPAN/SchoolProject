@@ -561,6 +561,139 @@ class TestRegionPrototype:
         assert blob.status_code == 200 and blob.content[:4] == b"glTF"
         manifest = client.get(f"/api/v1/models/{local['id']}/manifest", headers=auth_headers).json()
         assert "非局部重建" in manifest["manifest"]["note"]
+        detail = client.get(f"/api/v1/models/{local['id']}", headers=auth_headers)
+        assert detail.status_code == 200, detail.text
+        assert detail.json()["local_extraction"] == {
+            "parent_model_id": web["id"], "region_id": region["id"],
+            "bounds": {"min": region["bbox_min"], "max": region["bbox_max"]},
+        }
+        assert client.get(f"/api/v1/models/{web['id']}", headers=auth_headers).json()["local_extraction"] is None
+        assert any(e["stage"] == "LOCAL_UPDATE" and e["status"] == "completed" for e in job2["events"])
+        assert "区域提取完成" in client.get(f"/api/v1/jobs/{job2['id']}/logs", headers=auth_headers).text
+
+        # C：提取报告如实记录裁剪语义、父文件哈希、边界与贴图继承状态
+        import hashlib
+        import json
+        from pathlib import Path
+
+        from app.core.config import get_settings
+
+        report = json.loads((Path(get_settings().data_dir) / "users" / str(project["owner_id"]) / "projects"
+                             / str(project["id"]) / "outputs" / f"job-{job2['id']}" / "region_report.json").read_text())
+        assert report["crop_semantics"] == "triangle-centroid"
+        assert report["region_faces"] == local["face_count"]
+        assert report["boundary_edges"] >= 0 and isinstance(report["boundary_open"], bool)
+        from app.db.session import SessionLocal
+        from app.models.entities import Model
+
+        with SessionLocal() as db:
+            parent_path = db.get(Model, web["id"]).file_path
+        assert report["parent_sha256"] == hashlib.sha256(Path(parent_path).read_bytes()).hexdigest()
+        assert report["texture_assets"]["primitives_total"] > 0
+
+    @pytest.mark.parametrize("case", [
+        "missing", "malformed_json", "array_manifest", "wrong_job", "null_job", "float_job",
+        "wrong_mode", "wrong_stage", "missing_parent", "cross_project_parent", "self_parent",
+        "nonpositive_parent_id", "huge_parent_id", "bool_region_id", "string_region_id",
+        "missing_region_id", "missing_params", "short_bounds", "unordered_bounds", "flat_bounds",
+        "infinite_bounds", "nan_bounds", "bool_bounds", "string_bounds", "huge_bounds",
+    ])
+    def test_unverified_local_extraction_returns_null(self, client, auth_headers, project, tmp_path, case):
+        import json
+
+        from app.db.session import SessionLocal
+        from app.models.entities import Model, Project, ReconstructionJob
+
+        artifact = tmp_path / "region.glb"
+        with SessionLocal() as db:
+            other_project = Project(name="Another project", owner_id=project["owner_id"])
+            job = ReconstructionJob(project_id=project["id"], pipeline_mode="local_update")
+            db.add_all([other_project, job])
+            db.flush()
+            parent = Model(project_id=project["id"], model_type="web", format="glb", file_path=str(tmp_path / "parent.glb"))
+            other_parent = Model(project_id=other_project.id, model_type="web", format="glb", file_path=str(tmp_path / "other.glb"))
+            local = Model(
+                project_id=project["id"], model_type="mesh", format="glb", file_path=str(artifact),
+                job_id=None if case == "null_job" else job.id,
+                stage_origin="LOCAL_POINT_FUSION" if case == "wrong_stage" else "LOCAL_REGION",
+            )
+            db.add_all([parent, other_parent, local])
+            db.flush()
+            parent_id, other_parent_id, local_id, job_id = parent.id, other_parent.id, local.id, job.id
+            db.commit()
+
+        manifest = {
+            "job_id": job_id, "pipeline_mode": "local_update",
+            "target_model_id": parent_id, "region_id": 1,
+            "resolved_params": {"bbox_min": [6.48, -0.75, 2.46], "bbox_max": [7.95, -0.38, 3.17]},
+            "outputs": [str(artifact)],
+        }
+        overrides = {
+            "wrong_job": {"job_id": job_id + 1}, "float_job": {"job_id": float(job_id)},
+            "null_job": {"job_id": None}, "wrong_mode": {"pipeline_mode": "local_reconstruct"},
+            "missing_parent": {"target_model_id": max(parent_id, other_parent_id, local_id) + 1},
+            "cross_project_parent": {"target_model_id": other_parent_id},
+            "self_parent": {"target_model_id": local_id}, "nonpositive_parent_id": {"target_model_id": 0},
+            "huge_parent_id": {"target_model_id": 10**30}, "bool_region_id": {"region_id": True},
+            "string_region_id": {"region_id": "1"}, "missing_region_id": {"region_id": None},
+            "missing_params": {"resolved_params": []},
+        }
+        manifest.update(overrides.get(case, {}))
+        invalid_min = {
+            "short_bounds": [0, 0], "unordered_bounds": [9, 0, 0], "flat_bounds": [7.95, -0.75, 2.46],
+            "infinite_bounds": [float("-inf"), 0, 0], "nan_bounds": [float("nan"), 0, 0],
+            "bool_bounds": [True, -0.75, 2.46], "string_bounds": ["6.48", -0.75, 2.46],
+            "huge_bounds": [-(10**350), -0.75, 2.46],
+        }
+        if case in invalid_min:
+            manifest["resolved_params"]["bbox_min"] = invalid_min[case]
+        if case != "missing":
+            content = {"malformed_json": "{", "array_manifest": "[]"}.get(case, json.dumps(manifest))
+            artifact.with_name("job_manifest.json").write_text(content, encoding="utf-8")
+
+        detail = client.get(f"/api/v1/models/{local_id}", headers=auth_headers)
+        assert detail.status_code == 200, detail.text
+        assert detail.json()["local_extraction"] is None
+
+    def test_local_reconstruction_freezes_calibrated_inputs(
+        self, client, auth_headers, auth_headers_b, project, upload_images, monkeypatch
+    ):
+        from app.db.session import SessionLocal
+        from app.models.entities import ReconstructionJob
+        from app.services import job_service
+        import json
+
+        upload_images(4)
+        base = f"/api/v1/projects/{project['id']}"
+        result = client.post(f"{base}/jobs", headers=auth_headers, json={})
+        assert result.status_code == 202
+        assert wait_job(client, auth_headers, result.json()["id"])["status"] == "SUCCEEDED"
+        ids = client.get(f"{base}/images", headers=auth_headers).json()
+        ids = [i["id"] for i in ids][:3]
+        web = next(m for m in client.get(f"{base}/models", headers=auth_headers).json() if m["model_type"] == "web")
+        model = f"/api/v1/models/{web['id']}"
+        with SessionLocal() as db:
+            parent = db.get(ReconstructionJob, result.json()["id"])
+            expected = {e["filename"]:e["checksum"] for e in json.loads(parent.input_manifest)["images"] if e["image_id"] in ids}
+        seed = dict(bbox_min=[-2]*3, bbox_max=[2]*3, new_view_sha256=expected)
+        monkeypatch.setattr(job_service, "local_seed", lambda m: dict(seed))
+        saved = client.post(model+"/regions", headers=auth_headers, json={"bbox_min":[-1]*3,"bbox_max":[1]*3})
+        assert saved.status_code == 201
+        endpoint = model+"/local-reconstruction"
+        body = dict(region_id=saved.json()["id"], image_ids=ids)
+        assert client.post(endpoint, headers=auth_headers_b, json=body).status_code == 404
+        assert client.post(endpoint, headers=auth_headers, json={**body,"image_ids":[ids[0]]*3}).status_code == 400
+        pending = []
+        monkeypatch.setattr(job_service, "enqueue_job", pending.append)
+        started = client.post(endpoint, headers=auth_headers, json=body)
+        assert started.status_code == 202, started.text
+        assert pending == [started.json()["id"]]
+        with SessionLocal() as db:
+            job = db.get(ReconstructionJob, pending[0])
+            assert job.pipeline_mode == "local_reconstruct"
+            assert {e["image_id"] for e in json.loads(job.input_manifest)["images"]} == set(ids)
+            assert json.loads(job.config_json)["target_model_id"] == web["id"]
+        assert client.post(endpoint, headers=auth_headers, json=body).status_code == 409
 
     def test_region_queue_failure_allows_retry_with_same_region(
         self, client, auth_headers, project, upload_images, monkeypatch

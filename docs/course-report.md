@@ -159,10 +159,12 @@ Bridge `#6` 和 `#13` 未采集完整资源序列；未报告瞬时 CPU 利用�
 | E4 断点恢复 | 真实 Redis/RQ、隔离数据库、合成引擎故障演练；另有隔离后端回归 | 取消后 2.593 秒进入取消终态且测试子进程退出；Worker 强杀演练中替换 Worker 在 1.892 秒将任务标为 `FAILED / WORKER_LOST`。演练先清理遗留进程，再显式恢复，复用图片校验和特征提取检查点并发布模型；强杀不会保证清理引擎子进程。另有输入变化拒绝恢复回归。未采集全量重跑对恢复的耗时对照。[故障 JSON](../tests/worker-fault-drill.json) · [后端用例](../backend/tests/test_jobs.py) |
 | E5 模型展示 | 真实 Bridge 模型的 Chromium 夹具对照，区别于 E1 的真实服务验收 | 同一第二阶段任务 `#3` 的顶点色与照片 GLB 均为 27,041 面、包围盒一致；单色前景掩膜交并比为 1.0。照片模型旋转、滚轮缩放和重置通过像素断言；原照未做位姿对齐，未采集统一 FPS 或加载时间。[同视角断言](phase2-evidence/matched-view.json) |
 | E6 追加照片 | 历史真实重建成功；隔离 Mock 与真实发布逻辑回归 | South 项目 1 最早的 40 张结果为 `#7` / 模型 `#34` / v1（2000 px）。追加 10 张后任务 `#12` 以双卡 3000 px 全量重跑，发布 v4，父版是任务 `#11` 的 v3，而非 v1；旧模型 `#34` 的 SHA-256 不变。隔离回归验证晚到图片不计入当前任务、发布失败回滚且旧版仍可查看下载、恢复只生成一个后继版本；没有新一轮真实 COLMAP 失败注入。[版本更新记录](dev-summary/09-append-photo-versioning.md) |
-| E7 局部更新 | 既有网格提取原型：Chromium 夹具、独立候选版真实网格 API/Redis/RQ 验收；另有离线区域对照 | 框选产生模型空间包围盒，Worker 筛选已有网格三角形并登记独立结果。夹具覆盖取消、拖出画布、背面排除、入队重试和下载校验。独立候选版 `stage8-rc-3c7f6ebda83b` 以预生成的 Bridge 网格（27,041 面）经 HTTP 提交，真实 Redis/RQ 任务 `#1` 成功发布 9,465 面的区域 GLB，下载与 Worker 输出哈希相同，源文件哈希不变；没有打开浏览器或使用 GPU。候选版真实网格的网页闭环未执行；新照片局部重算与融合未实现，E7 未达成。[原型记录](dev-summary/10-local-reconstruction-feasibility.md) · [独立验收](stage8-evidence/README.md) · [证据 JSON](stage8-evidence/real-mesh-api.json) |
+| E7 局部更新 | 既有网格提取原型：Chromium 夹具、独立候选版真实网格 API/Redis/RQ 验收；另有离线区域对照 | 框选产生模型空间包围盒，Worker 筛选已有网格三角形并登记独立结果。夹具覆盖取消、拖出画布、背面排除、入队重试和下载校验。独立候选版 `stage8-rc-3c7f6ebda83b` 以预生成的 Bridge 网格（27,041 面）经 HTTP 提交，真实 Redis/RQ 任务 `#1` 成功发布 9,465 面的区域 GLB，下载与 Worker 输出哈希相同，源文件哈希不变；没有打开浏览器或使用 GPU。候选版真实网格的网页闭环未执行；以 R01/#24 为父版本的[真实局部视图重建与点云融合实验](dev-summary/17-bridge-local-fusion.md)已完成；未通过新照收益的独立证据门槛，网格接缝和网页新流程仍未完成。[原型记录](dev-summary/10-local-reconstruction-feasibility.md) · [独立验收](stage8-evidence/README.md) · [证据 JSON](stage8-evidence/real-mesh-api.json) |
 | E8 多任务调度 | 队列相关与并发保护测试 | 后端用例覆盖同项目活动任务冲突、排队任务取消等行为；未做真实 Redis/RQ 单任务与多项目排队对照，不能报告吞吐、排队统计或分布式能力。[计划对照](dev-summary/05-plan-status.md#3-指南-13-实验矩阵-e1e8-对照) · [后端用例](../backend/tests/test_jobs.py) |
 
 区域级可行性分析另比较 South 全量任务 `#7`（单卡 2000 px）与 `#11`（双卡 3000 px）。按同一源相机模拟框选，区域内点数从 120,862 增至 334,654，区域外点数也增加；这只能说明两份全局结果在该区域的采样差异，不能证明选区外几何保持不变。[区域对照记录](dev-summary/10-local-reconstruction-feasibility.md#2-区域级可行性实验真实数据)
+
+答辩依照 [Bridge 逐轮演示流程](答辩演示流程.md) 依次展示完整迭代；以 R01/#24 为父版本的[真实局部视图重建与点云融合实验](dev-summary/17-bridge-local-fusion.md)已完成；未通过新照收益的独立证据门槛，网格接缝和网页新流程仍未完成。
 
 ## 九、实验结果分析与讨论
 
@@ -209,3 +211,5 @@ Bridge `#6` 和 `#13` 未采集完整资源序列；未报告瞬时 CPU 利用�
 | GPU 对照：Bridge `#6/#13` | `1f7a33f3771a66181309525bc916012822c398799d782f34999adf8ebd5b519a`；[逐阶段计时](gpu-benchmark-evidence/task-metrics.json)，逐视图质量：[6](gpu-benchmark-evidence/quality-job6.json)、[13](gpu-benchmark-evidence/quality-job13.json)。 |
 
 复跑入口：[部署与依赖锁](deployment.md)、[Poisson 对照脚本](../scripts/benchmark_poisson.py)、[同视角夹具脚本](../scripts/phase2_matched_view_test.py)、[资源采样脚本](../scripts/sample_resources.py)。答辩可复用[正式上传](phase2-evidence/live-upload.png)、[任务状态](phase2-evidence/live-task.png)、[顶点色](phase2-evidence/vertex-home.png)和[照片贴图](phase2-evidence/photo-home.png)归档画布；这些材料应标注轮次，不作为当前部署截图。另见[报告提纲与答辩材料清单](course-report-outline.md)。
+
+#24 后续功能的实际验收、任务记录恢复与独立留出深度结论见[局部操作验收](dev-summary/18-local-platform-review.md)。

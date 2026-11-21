@@ -25,6 +25,7 @@ from app.models.entities import (
     ReconstructionJob,
 )
 from app.reconstruction import export as export_tools
+from app.reconstruction.profiles import MESH_UPGRADE_TOP_BAND_THRESHOLD, POISSON_TRIM_DEFAULT, PROFILES
 from app.reconstruction.manifest import (
     atomic_write_json,
     checked_manifest,
@@ -39,13 +40,11 @@ from app.utils.files import human_size, sanitize_filename
 logger = get_logger("pipeline")
 
 PRESET_PARAMS = {
-    # poisson_depth 与开发指南的预设表一致（fast=8 / standard=10 / high=12）。
-    # 第二轮在正式 Bridge 数据上的 depth×trim 对照表明：同一份 2000px 稠密点云，
-    # depth 10 的点支撑面积 74.3%、无支撑外插 11.1%，显著优于 depth 8 的 65.7%/27.8%。
-    # high 的 depth 12 网格量级可达数百万面，贴图与查看器开销大，未在本轮验收。
-    "fast": {"max_features": 4096, "poisson_depth": 8, "matcher_default": "sequential"},
-    "standard": {"max_features": 8192, "poisson_depth": 10, "matcher_default": "exhaustive"},
-    "high": {"max_features": 16384, "poisson_depth": 12, "matcher_default": "exhaustive"},
+    # A1 起 preset 定义统一维护在 profiles.PROFILES；speed 画像来自组合提速实测。
+    # 这里保留同结构的派生视图，兼容既有引用；执行参数优先取任务冻结的 resolved。
+    name: {key: value for key, value in profile.items()
+           if key in ("max_features", "poisson_depth", "matcher_default")}
+    for name, profile in PROFILES.items()
 }
 
 
@@ -95,15 +94,29 @@ class PipelineContext:
         for d in (self.work_dir, self.out_dir, self.logs_dir, self.checkpoints_dir):
             d.mkdir(parents=True, exist_ok=True)
 
-        self.params = PRESET_PARAMS.get(config.get("preset", "standard"), PRESET_PARAMS["standard"])
+        # A1：执行参数优先取任务创建时冻结的 resolved；旧任务（无 resolved）
+        # 退回环境变量与 PRESET_PARAMS，行为与历史一致。
+        resolved = config.get("resolved") or {}
+        fallback = PRESET_PARAMS.get(config.get("preset", "standard"), PRESET_PARAMS["standard"])
+        settings = get_settings()
+        self.params = {
+            "max_features": resolved.get("max_features", fallback["max_features"]),
+            "poisson_depth": resolved.get("poisson_depth", fallback["poisson_depth"]),
+            "matcher_default": resolved.get("matcher", fallback["matcher_default"]),
+        }
         self.current_stage: str | None = None  # 供异常处理读取（不依赖 DB）
         # 恢复判定输入：任务级（输入清单 + 配置）
         self.job_inputs_sha = compute_sha_of(
             {"images_sha": input_manifest_sha(input_manifest), "config": config}
         )
         self.engine_identity: dict = {"mode": job.pipeline_mode, "version": job.engine_version}
-        self.dense_max_image_size = get_settings().colmap_dense_max_image_size
-        self.gpu_index = get_settings().colmap_gpu_index
+        self.dense_max_image_size = resolved.get("dense_max_image_size", settings.colmap_dense_max_image_size)
+        self.gpu_index = resolved.get("gpu_index", settings.colmap_gpu_index)
+        self.patchmatch_iterations = resolved.get("patchmatch_iterations", settings.colmap_patchmatch_iterations)
+        self.fusion_threads = resolved.get("fusion_threads", settings.colmap_fusion_threads)
+        self.texture_start_scale = resolved.get("texture_start_scale", settings.colmap_texture_start_scale)
+        self.poisson_threads = resolved.get("poisson_threads", POISSON_THREADS)
+        self.poisson_trim = resolved.get("poisson_trim", POISSON_TRIM_DEFAULT)
         self.stage_fingerprints: dict[str, str] = {}
         self.completed_stages: set[str] = set()
 
@@ -157,6 +170,9 @@ class PipelineContext:
             # 进度 = 已完成（含跳过）阶段权重之和
             if status in ("completed", "skipped"):
                 weights = dict(PIPELINE_STAGES)
+                if self.config.get("mode") == "local_reconstruct":
+                    weights = {"IMAGE_VALIDATION": 5, "IMAGE_UNDISTORTION": 10,
+                               "DENSE_RECONSTRUCTION": 55, "STEREO_FUSION": 20, "EXPORTING": 10}
                 self.completed_stages.add(stage)
                 job.progress = float(sum(weights.get(s, 0) for s in self.completed_stages))
             db.commit()
@@ -179,7 +195,11 @@ class PipelineContext:
                if stage in ("DENSE_RECONSTRUCTION", "STEREO_FUSION") else {}),
             **({"gpu_index": self.gpu_index}
                if stage in ("FEATURE_EXTRACTION", "FEATURE_MATCHING", "DENSE_RECONSTRUCTION") else {}),
-            **({"poisson_depth": self.params["poisson_depth"], "poisson_threads": POISSON_THREADS}
+            **({"num_iterations": self.patchmatch_iterations} if stage == "DENSE_RECONSTRUCTION" else {}),
+            **({"num_threads": self.fusion_threads} if stage == "STEREO_FUSION" else {}),
+            **({"start_scale": self.texture_start_scale} if stage == "TEXTURING" else {}),
+            **({"poisson_depth": self.params["poisson_depth"], "poisson_threads": self.poisson_threads,
+                "poisson_trim": self.poisson_trim}
                if stage == "MESHING" else {}),
             **({"max_features": self.params["max_features"]} if stage == "FEATURE_EXTRACTION" else {}),
         }
@@ -188,9 +208,10 @@ class PipelineContext:
         return {"job_inputs_sha": self.job_inputs_sha,
                 "upstream": {name: self.stage_fingerprints[name] for name in upstream}}
 
-    def write_stage_manifest(self, stage: str, stage_dir: Path, files, upstream=()) -> dict:
+    def write_stage_manifest(self, stage: str, stage_dir: Path, files, upstream=(), extra: dict | None = None) -> dict:
         self.check_cancel(stage)
-        manifest = write_manifest(stage_dir, stage, self.stage_params(stage), self.stage_inputs(stage, upstream), files)
+        manifest = write_manifest(stage_dir, stage, self.stage_params(stage),
+                                  self.stage_inputs(stage, upstream), files, extra=extra)
         self.stage_fingerprints[stage] = checkpoint_fingerprint(manifest)
         return manifest
 
@@ -229,6 +250,8 @@ class ColmapPipeline:
         self.has_cuda = adapter.use_gpu
         self.enable_dense = bool(ctx.config.get("enable_dense", True)) and self.has_cuda
         self.enable_mesh = bool(ctx.config.get("enable_mesh", True))
+        self._mesh_quality: dict = {}
+        self._mesh_warnings: list[str] = []
         # 适配层要求无参 cancel_check；取消时以当前阶段名抛出 StageCancelled
         self._cc = lambda: ctx.check_cancel(ctx.current_stage or "?")
 
@@ -263,7 +286,9 @@ class ColmapPipeline:
         mesh_ply: Path | None = None
         if self.enable_mesh and fused_ply:
             try:
-                mesh_ply = self._stage_meshing(fused_ply)
+                mesh_ply = self._stage_meshing(fused_ply, model_dir, result.get("display_up"))
+                result["warnings"].extend(self._mesh_warnings)
+                result["mesh_quality"] = self._mesh_quality
             except PipelineError as e:
                 if e.code == "CANCELLED":
                     raise
@@ -436,7 +461,7 @@ class ColmapPipeline:
             _clear_dir(folder)
             folder.mkdir(parents=True)
         self.adapter.dense_stereo(dense_dir, ctx.log_file(stage), self._cc,
-                                  max_image_size=ctx.dense_max_image_size)
+                                  max_image_size=ctx.dense_max_image_size, num_iterations=ctx.patchmatch_iterations)
         files = _stereo_files(dense_dir)
         if not files:
             raise PipelineError(stage, "NO_OUTPUT", "COLMAP 未生成完整的几何深度图和法线图")
@@ -455,13 +480,14 @@ class ColmapPipeline:
         out_ply = stage_dir / "fused.ply"
         out_ply.unlink(missing_ok=True)
         self.adapter.stereo_fusion(dense_dir, out_ply, ctx.log_file(stage), self._cc,
-                                   max_image_size=ctx.dense_max_image_size)
+                                   max_image_size=ctx.dense_max_image_size, num_threads=ctx.fusion_threads)
         _require_ply(stage, out_ply)
         ctx.write_stage_manifest(stage, stage_dir, [out_ply], upstream)
         ctx.set_stage_result(stage, "completed", f"点云融合完成（{human_size(out_ply.stat().st_size)}）")
         return out_ply
 
-    def _stage_meshing(self, fused_ply: Path) -> Path:
+    def _stage_meshing(self, fused_ply: Path, model_dir: Path | None = None,
+                       display_up: list[float] | None = None) -> Path:
         ctx = self.ctx
         stage = "MESHING"
         stage_dir = ctx.checkpoints_dir / stage
@@ -484,16 +510,76 @@ class ColmapPipeline:
             ctx.job_log(f"[{stage}] 离群点过滤失败，使用原始点云: {e}")
         from app.reconstruction.adapter import ColmapStageError
 
-        try:
+        def poisson(target: Path, trim: int) -> None:
             self.adapter.poisson_meshing(
-                mesh_input, out_ply, ctx.log_file(stage), self._cc,
-                quality=ctx.params["poisson_depth"], num_threads=POISSON_THREADS,
+                mesh_input, target, ctx.log_file(stage), self._cc,
+                quality=ctx.params["poisson_depth"], num_threads=ctx.poisson_threads, trim=trim,
             )
+            _require_ply(stage, target, mesh=True)
+
+        try:
+            poisson(out_ply, ctx.poisson_trim)
         except ColmapStageError as exc:
             raise PipelineError(stage, exc.code, str(exc)) from exc
-        _require_ply(stage, out_ply, mesh=True)
-        ctx.write_stage_manifest(stage, stage_dir, [out_ply], upstream)
-        ctx.set_stage_result(stage, "completed", f"Poisson 网格生成完成（{human_size(out_ply.stat().st_size)}）")
+
+        # A2 质量诊断：面支撑代理指标 + 预声明门槛的 trim 候选裁定。
+        quality: dict = {"mesh_candidates": []}
+        warnings: list[str] = []
+        try:
+            from app.reconstruction.mesh_quality import (choose_mesh_candidate, read_binary_ply_xyz,
+                                                         read_camera_centers, support_metrics,
+                                                         top_view_warning)
+
+            cloud_xyz = read_binary_ply_xyz(mesh_input)
+            conservative = support_metrics(out_ply, cloud_xyz, up=display_up)
+            conservative["trim"] = ctx.poisson_trim
+            quality["mesh_candidates"].append({"role": "conservative", **conservative})
+            aggressive = None
+            top_band = conservative.get("bands", {}).get("top")
+            if top_band is not None and top_band < MESH_UPGRADE_TOP_BAND_THRESHOLD and ctx.poisson_trim > 8:
+                alt_ply = stage_dir / "meshed-poisson-alt.ply"
+                ctx.job_log(f"[{stage}] 上部支撑 {top_band:.3f} < {MESH_UPGRADE_TOP_BAND_THRESHOLD}，"
+                            f"生成 trim={ctx.poisson_trim - 1} 候选")
+                try:
+                    poisson(alt_ply, ctx.poisson_trim - 1)
+                    aggressive = support_metrics(alt_ply, cloud_xyz, up=display_up)
+                    aggressive["trim"] = ctx.poisson_trim - 1
+                    quality["mesh_candidates"].append({"role": "aggressive", **aggressive})
+                except ColmapStageError as exc:
+                    ctx.job_log(f"[{stage}] 候选网格生成失败，保留保守候选: {exc}")
+                    alt_ply.unlink(missing_ok=True)
+            winner = "conservative"
+            if aggressive is not None:
+                winner, reason = choose_mesh_candidate(conservative, aggressive)
+                quality["decision"] = {"winner": winner, "reason": reason}
+                ctx.job_log(f"[{stage}] 候选裁定：{winner}。{reason}")
+                if winner == "aggressive":
+                    out_ply.unlink(missing_ok=True)
+                    alt_ply.replace(out_ply)
+            quality["selected"] = {"trim": conservative["trim"] if winner == "conservative" else aggressive["trim"],
+                                   **support_metrics(out_ply, cloud_xyz, up=display_up)}
+            if model_dir is not None and (model_dir / "images.bin").is_file():
+                warning = top_view_warning(read_camera_centers(model_dir / "images.bin"), cloud_xyz, display_up)
+                if warning:
+                    warnings.append(warning)
+                    quality["top_view_warning"] = warning
+        except Exception as e:  # 诊断失败不阻断重建，但必须如实记录
+            quality["diagnostic_error"] = str(e)
+            ctx.job_log(f"[{stage}] 质量诊断失败（不阻断）: {e}")
+
+        ctx.write_stage_manifest(stage, stage_dir,
+                                 [p for p in (out_ply, stage_dir / "meshed-poisson-alt.ply") if p.is_file()],
+                                 upstream, extra=quality)
+        result_hint = f"Poisson 网格生成完成（{human_size(out_ply.stat().st_size)}）"
+        if quality.get("selected"):
+            result_hint += f"；面支撑代理 {quality['selected']['supported_face_fraction']:.3f}"
+        if warnings:
+            result_hint += "；" + warnings[0]
+        ctx.set_stage_result(stage, "completed", result_hint)
+        for warning in warnings:
+            ctx.job_log(f"[{stage}] {warning}")
+        self._mesh_quality = quality
+        self._mesh_warnings = warnings
         return out_ply
 
     def _stage_texturing(self, dense_dir: Path, mesh_ply: Path | None, result: dict) -> Path | None:
@@ -522,8 +608,10 @@ class ColmapPipeline:
             executable = resolve_texturer(configured_bin)
             binary = Path(executable).stat()
             implementation = {
-                "version": 2, "scales": list(TEXTURE_SCALES), "binary": executable, "size": binary.st_size,
+                "version": 2, "scales": [scale for scale in TEXTURE_SCALES if scale <= ctx.texture_start_scale], "binary": executable, "size": binary.st_size,
                 "mtime_ns": binary.st_mtime_ns, "options": TEXTURING_OPTIONS,
+                # A2：贴图工具以内容哈希入库，路径/版本号相同不代表二进制相同
+                "binary_sha256": sha256_file(executable),
             }
             try:
                 saved = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -538,7 +626,8 @@ class ColmapPipeline:
                 scratch = Path(temp)
                 log = ctx.log_file(stage)
                 check_cancel = lambda: ctx.check_cancel(stage)
-                textured = bake_texture(executable, dense_dir, mesh_ply, scratch / "texture", log, check_cancel)
+                textured = bake_texture(executable, dense_dir, mesh_ply, scratch / "texture", log, check_cancel,
+                                        start_scale=ctx.texture_start_scale)
                 try:
                     up = estimate_upright(executable, dense_dir, scratch, log, result.get("display_up"), check_cancel)
                 except Exception as exc:
@@ -550,6 +639,9 @@ class ColmapPipeline:
                 metadata = photo_mesh_to_glb(mesh_ply, textured, scratch / PHOTO_FILENAME, up)
                 check_cancel()
                 (scratch / PHOTO_FILENAME).replace(glb)
+            # A2：贴图阶段记录参与注册的照片数，与工具身份一起构成一等阶段证据
+            images_dir = dense_dir / "images"
+            metadata["registered_photos"] = sum(1 for _ in images_dir.iterdir()) if images_dir.is_dir() else 0
             metadata.update(status="completed", path=PHOTO_FILENAME, implementation=implementation,
                             origin=PHOTO_STAGE if up is not None else PHOTO_NATIVE)
             atomic_write_json(metadata_path, metadata)

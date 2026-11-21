@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, FiniteFloat, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # 通用
@@ -143,7 +143,7 @@ class QualityCheckSummary(BaseModel):
 # Job
 # ---------------------------------------------------------------------------
 
-ReconPreset = Literal["fast", "standard", "high"]
+ReconPreset = Literal["fast", "standard", "high", "speed"]
 MatcherType = Literal["auto", "exhaustive", "sequential"]
 
 
@@ -162,6 +162,11 @@ class JobConfigOut(BaseModel):
     enable_mesh: bool
     use_gpu: bool
     mode: str  # colmap | mock
+    # A1 冻结解析：任务创建时确定的执行参数、提交预检与 GPU 能力报告
+    resolved: dict | None = None
+    preflight: dict | None = None
+    capability: dict | None = None
+    matcher_decision: str | None = None
 
 
 class JobStageEventOut(BaseModel):
@@ -221,12 +226,39 @@ class ModelOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+_FiniteCoordinate = Annotated[FiniteFloat, Field(strict=True)]
+_ProvenanceId = Annotated[int, Field(strict=True, gt=0, le=2**63 - 1)]
+
+
+class LocalExtractionBounds(BaseModel):
+    min: tuple[_FiniteCoordinate, _FiniteCoordinate, _FiniteCoordinate]
+    max: tuple[_FiniteCoordinate, _FiniteCoordinate, _FiniteCoordinate]
+
+    @model_validator(mode="after")
+    def ordered_bounds(self) -> LocalExtractionBounds:
+        if not all(lo < hi for lo, hi in zip(self.min, self.max)):
+            raise ValueError("Each maximum must exceed its minimum")
+        return self
+
+
+class LocalExtractionOut(BaseModel):
+    parent_model_id: _ProvenanceId
+    region_id: _ProvenanceId
+    bounds: LocalExtractionBounds
+
+
 class ModelDetailOut(ModelOut):
+    local_extraction: LocalExtractionOut | None = None
+    local_reconstruction_available: bool = False
+    local_reconstruction_mode: str | None = None
+    local_reconstruction_image_ids: list[int] = Field(default_factory=list)
+    local_reconstruction_bounds: dict[str, list[float]] | None = None
     experiment_name: str | None = None
     experiment: dict | None = None
     pipeline_mode: str | None = None
     versions: list["ModelVersionOut"] = []
     display_up: tuple[float, float, float] | None = None
+    texture_assets: dict | None = None
     legacy_srgb_vertex_colors: bool = False
 
 
@@ -272,3 +304,9 @@ class ModelRegionOut(BaseModel):
 
 class LocalUpdateIn(BaseModel):
     region_id: int
+
+
+class LocalReconstructionIn(BaseModel):
+    """局部重建：通用模式 1–32 张任意新增照片；受试种子模式仍要求恰好 3 张。"""
+    region_id: int
+    image_ids: list[int] = Field(min_length=1, max_length=32)

@@ -34,6 +34,8 @@ def main() -> int:
     ap.add_argument("--images", type=int, default=0, help="上传前 N 张（0=全部）")
     ap.add_argument("--user", default="e2e_user")
     ap.add_argument("--password", default="e2e_pass_123456")
+    ap.add_argument("--experiment-name")
+    ap.add_argument("--existing-job", type=int, help="只接管校验已有任务，不重新提交")
     ap.add_argument("--preset", default="fast")
     ap.add_argument("--matcher", default="auto")
     ap.add_argument("--no-dense", action="store_true")
@@ -66,87 +68,105 @@ def main() -> int:
     headers = {"Authorization": f"Bearer {token}"}
     print(f"用户 {args.user} 登录成功")
 
-    # 3. 创建项目
-    step("3. 创建项目")
-    r = session.post(
-        f"{base}/api/v1/projects",
-        json={"name": f"E2E-重建测试-{int(time.time())}", "description": "端到端自动测试"},
-        headers=headers,
-    )
-    r.raise_for_status()
-    project = r.json()
-    pid = project["id"]
-    print(f"项目 #{pid}: {project['name']}")
+    if args.existing_job is not None:
+        jid = args.existing_job
+        existing = session.get(f"{base}/api/v1/jobs/{jid}", headers=headers, timeout=30)
+        existing.raise_for_status()
+        pid = existing.json()["project_id"]
+        project = session.get(f"{base}/api/v1/projects/{pid}", headers=headers, timeout=30)
+        project.raise_for_status()
+        ok = project.json()["image_count"]
+        print(f"核验已提交任务 #{jid}（项目 #{pid}）", flush=True)
+    else:
+        # 3. 创建项目
+        step("3. 创建项目")
+        r = session.post(
+            f"{base}/api/v1/projects",
+            json={"name": f"E2E-重建测试-{int(time.time())}", "description": "端到端自动测试"},
+            headers=headers,
+        )
+        r.raise_for_status()
+        project = r.json()
+        pid = project["id"]
+        print(f"项目 #{pid}: {project['name']}")
 
-    # 4. 上传图片
-    step("4. 上传图片")
-    img_dir = Path(args.dataset)
-    if not img_dir.is_dir():
-        print(f"数据集目录不存在: {img_dir}")
-        return 1
-    files_all = sorted(p for p in img_dir.iterdir() if p.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff"))
-    if args.images:
-        files_all = files_all[: args.images]
-    sizes = [p.stat().st_size for p in files_all]
-    total_bytes = sum(sizes)
-    if args.formal and not (len(sizes) >= 100 and 500_000_000 <= total_bytes <= 1_000_000_000
-                            and min(sizes) >= 4_000_000):
-        ap.error(f"原片不满足正式数据标准：{len(sizes)} 张，{total_bytes} 字节")
-    print(f"待上传 {len(files_all)} 张，共 {total_bytes} 字节")
-    ok, fail = 0, 0
-    batch: list[tuple[str, bytes]] = []
-    for i, p in enumerate(files_all):
-        batch.append((p.name, p.read_bytes()))
-        if len(batch) == 10 or i == len(files_all) - 1:
-            files = [("files", (name, data, "image/jpeg")) for name, data in batch]
-            r = session.post(f"{base}/api/v1/projects/{pid}/images", files=files, headers=headers)
-            if r.status_code == 201:
-                payload = r.json()
-                accepted = payload if isinstance(payload, list) else payload["items"]
-                ok += len(accepted)
-                fail += len(batch) - len(accepted)
-            else:
-                fail += len(batch)
-                print(f"  批次失败: {r.status_code} {r.text[:200]}")
-            batch = []
-            print(f"  进度: {ok}/{len(files_all)}")
-    print(f"上传完成: 成功 {ok} / 失败 {fail}")
-    detail = session.get(f"{base}/api/v1/projects/{pid}", headers=headers, timeout=30)
-    detail.raise_for_status()
-    uploaded = detail.json()
-    if fail or ok < 3 or ok != len(files_all) or uploaded["image_count"] != ok or uploaded["total_image_bytes"] != total_bytes:
-        print("上传数量或原片字节数不一致，停止验收")
-        return 1
+        # 4. 上传图片
+        step("4. 上传图片")
+        img_dir = Path(args.dataset)
+        if not img_dir.is_dir():
+            print(f"数据集目录不存在: {img_dir}")
+            return 1
+        files_all = sorted(p for p in img_dir.iterdir() if p.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff"))
+        if args.images:
+            files_all = files_all[: args.images]
+        sizes = [p.stat().st_size for p in files_all]
+        total_bytes = sum(sizes)
+        if args.formal and not (len(sizes) >= 100 and 500_000_000 <= total_bytes <= 1_000_000_000
+                                and min(sizes) >= 4_000_000):
+            ap.error(f"原片不满足正式数据标准：{len(sizes)} 张，{total_bytes} 字节")
+        print(f"待上传 {len(files_all)} 张，共 {total_bytes} 字节")
+        ok, fail = 0, 0
+        batch: list[tuple[str, bytes]] = []
+        for i, p in enumerate(files_all):
+            batch.append((p.name, p.read_bytes()))
+            if len(batch) == 10 or i == len(files_all) - 1:
+                files = [("files", (name, data, "image/jpeg")) for name, data in batch]
+                r = session.post(f"{base}/api/v1/projects/{pid}/images", files=files, headers=headers)
+                if r.status_code == 201:
+                    payload = r.json()
+                    accepted = payload if isinstance(payload, list) else payload["items"]
+                    ok += len(accepted)
+                    fail += len(batch) - len(accepted)
+                else:
+                    fail += len(batch)
+                    print(f"  批次失败: {r.status_code} {r.text[:200]}")
+                batch = []
+                print(f"  进度: {ok}/{len(files_all)}")
+        print(f"上传完成: 成功 {ok} / 失败 {fail}")
+        detail = session.get(f"{base}/api/v1/projects/{pid}", headers=headers, timeout=30)
+        detail.raise_for_status()
+        uploaded = detail.json()
+        if fail or ok < 3 or ok != len(files_all) or uploaded["image_count"] != ok or uploaded["total_image_bytes"] != total_bytes:
+            print("上传数量或原片字节数不一致，停止验收")
+            return 1
 
-    # 5. 质量检查
-    step("5. 图片质量检查")
-    r = session.post(f"{base}/api/v1/projects/{pid}/quality-check", headers=headers)
-    print(f"质量检查: {r.json()}")
+        # 5. 质量检查
+        step("5. 图片质量检查")
+        r = session.post(f"{base}/api/v1/projects/{pid}/quality-check", headers=headers)
+        print(f"质量检查: {r.json()}")
 
-    # 6. 提交重建任务
-    step("6. 提交重建任务")
-    r = session.post(
-        f"{base}/api/v1/projects/{pid}/jobs",
-        json={"preset": args.preset, "matcher": args.matcher, "enable_dense": not args.no_dense, "enable_mesh": True},
-        headers=headers,
-    )
-    if r.status_code != 202:
-        print(r.text)
-        return 1
-    job = r.json()
-    jid = job["id"]
-    print(f"任务 #{jid} 已提交（mode={job['pipeline_mode']}）")
+        # 6. 提交重建任务
+        step("6. 提交重建任务")
+        r = session.post(
+            f"{base}/api/v1/projects/{pid}/jobs",
+            json={"experiment_name": args.experiment_name, "preset": args.preset, "matcher": args.matcher, "enable_dense": not args.no_dense, "enable_mesh": True},
+            headers=headers,
+        )
+        if r.status_code != 202:
+            print(r.text)
+            return 1
+        job = r.json()
+        jid = job["id"]
+        print(f"任务 #{jid} 已提交（mode={job['pipeline_mode']}）")
 
     # 7. 轮询任务状态
     step("7. 等待重建完成")
-    t0 = time.time()
+    t0 = time.monotonic()
     last_stage = ""
-    while time.time() - t0 < args.timeout:
-        r = session.get(f"{base}/api/v1/jobs/{jid}", headers=headers)
+    while time.monotonic() - t0 < args.timeout:
+        try:
+            r = session.get(f"{base}/api/v1/jobs/{jid}", headers=headers, timeout=15)
+            if r.status_code in (502, 503, 504):
+                raise requests.ConnectionError(f"HTTP {r.status_code}")
+            r.raise_for_status()
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            print(f"轮询暂时断开，保留原任务 #{jid} 并重试：{exc}", flush=True)
+            time.sleep(5)
+            continue
         j = r.json()
         stage = j.get("current_stage") or "-"
         if stage != last_stage:
-            print(f"  [{int(time.time()-t0)}s] status={j['status']} stage={stage} progress={j['progress']:.0f}%")
+            print(f"  [{int(time.monotonic()-t0)}s] status={j['status']} stage={stage} progress={j['progress']:.0f}%")
             last_stage = stage
         if j["status"] in ("SUCCEEDED", "FAILED", "CANCELLED"):
             if j["status"] != "SUCCEEDED":
@@ -159,7 +179,7 @@ def main() -> int:
     else:
         print("超时")
         return 1
-    print(f"任务成功，总耗时 {time.time()-t0:.0f}s")
+    print(f"任务成功，总耗时 {time.monotonic()-t0:.0f}s")
 
     # 8. 校验阶段事件与日志
     step("8. 校验阶段事件")
@@ -221,7 +241,7 @@ def main() -> int:
         "project_id": pid,
         "job_id": jid,
         "images_uploaded": ok,
-        "duration_s": round(time.time() - t0, 1),
+        "duration_s": round(time.monotonic() - t0, 1),
         "models": [{"id": m["id"], "type": m["model_type"], "size": m["file_size"]} for m in models],
         "download_file": str(out),
         "all_stages_ok": stages_ok,

@@ -1,0 +1,630 @@
+{
+  "baseline": {
+    "job": 1,
+    "parameters": {
+      "max_features": 8192,
+      "matcher_default": "exhaustive",
+      "poisson_depth": 10,
+      "dense_max_image_size": 3000,
+      "gpu_index": "0,1",
+      "patchmatch_iterations": 5,
+      "fusion_threads": -1,
+      "texture_start_scale": 0.5
+    },
+    "wall_seconds": 4421.825459,
+    "queue_seconds": 2.217697,
+    "stages": [
+      {
+        "stage": "IMAGE_VALIDATION",
+        "status": "completed",
+        "duration_ms": 2412,
+        "message": "校验完成：100 张有效"
+      },
+      {
+        "stage": "FEATURE_EXTRACTION",
+        "status": "completed",
+        "duration_ms": 22259,
+        "message": "SIFT 特征提取完成"
+      },
+      {
+        "stage": "FEATURE_MATCHING",
+        "status": "completed",
+        "duration_ms": 49770,
+        "message": "特征匹配完成（策略 exhaustive）"
+      },
+      {
+        "stage": "SPARSE_RECONSTRUCTION",
+        "status": "completed",
+        "duration_ms": 440576,
+        "message": "稀疏重建完成：0"
+      },
+      {
+        "stage": "IMAGE_UNDISTORTION",
+        "status": "completed",
+        "duration_ms": 26857,
+        "message": "图像去畸变完成"
+      },
+      {
+        "stage": "DENSE_RECONSTRUCTION",
+        "status": "completed",
+        "duration_ms": 3097296,
+        "message": "稠密深度图完成（GPU）"
+      },
+      {
+        "stage": "STEREO_FUSION",
+        "status": "completed",
+        "duration_ms": 397116,
+        "message": "点云融合完成（123.4 MB）"
+      },
+      {
+        "stage": "MESHING",
+        "status": "completed",
+        "duration_ms": 20588,
+        "message": "Poisson 网格生成完成（8.1 MB）"
+      },
+      {
+        "stage": "TEXTURING",
+        "status": "completed",
+        "duration_ms": 358562,
+        "message": "照片贴图完成，保留原朝向供手动调整"
+      },
+      {
+        "stage": "EXPORTING",
+        "status": "completed",
+        "duration_ms": 3522,
+        "message": "导出 5 个产物"
+      }
+    ],
+    "registered": 100,
+    "photo_texture": {
+      "vertex_count": 259939,
+      "face_count": 375770,
+      "textured_faces": 336782,
+      "face_coverage": 0.8962450435106581,
+      "atlas_size": [
+        8192,
+        4184
+      ],
+      "orientation": "native_manual",
+      "color_space": "srgb",
+      "rotation_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "rotation_center": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "source_up": null,
+      "status": "completed",
+      "path": "model_photo.glb",
+      "implementation": {
+        "version": 2,
+        "scales": [
+          0.5,
+          0.25,
+          0.125
+        ],
+        "binary": "/tmp/recon-colmap.oUTYXW/env/bin/colmap",
+        "size": 31544400,
+        "mtime_ns": 1794974737868315171,
+        "options": [
+          "--MeshTextureMapping.num_threads",
+          "8",
+          "--MeshTextureMapping.texture_scale_factor",
+          "0.5",
+          "--MeshTextureMapping.atlas_patch_padding",
+          "4"
+        ]
+      },
+      "origin": "PHOTO_TEXTURE"
+    },
+    "photo_sha256": "569d56e72cbee4a0dc5d650db94e2442c1e20790932122dc9ab2a3faa36e263a",
+    "projection": {
+      "work_scale": 1000,
+      "images": 12,
+      "point_radius": 2.0,
+      "support_dilate": 5,
+      "cloud_points": 4742536,
+      "mesh_default_faces": 375770,
+      "mesh_candidate_faces": 375770,
+      "aggregate": {
+        "dense_coverage": {
+          "mean": 0.8277914110429448,
+          "median": 0.8292062883435583,
+          "p10": 0.7599296012269939,
+          "min": 0.5758113496932515
+        },
+        "mesh_default_coverage": {
+          "mean": 0.9654507924335379,
+          "median": 0.9745521472392638,
+          "p10": 0.9372203987730061,
+          "min": 0.8314141104294479
+        },
+        "mesh_candidate_coverage": {
+          "mean": 0.9654507924335379,
+          "median": 0.9745521472392638,
+          "p10": 0.9372203987730061,
+          "min": 0.8314141104294479
+        },
+        "mesh_default_point_support": {
+          "mean": 0.9111539264713393,
+          "median": 0.9180505423729256,
+          "p10": 0.8840576831348032,
+          "min": 0.7158655609839044
+        },
+        "mesh_default_beyond_points": {
+          "mean": 0.08884607352866059,
+          "median": 0.08194945762707442,
+          "p10": 0.028932066024557036,
+          "min": 0.022083196000024875
+        },
+        "mesh_candidate_point_support": {
+          "mean": 0.9111539264713393,
+          "median": 0.9180505423729256,
+          "p10": 0.8840576831348032,
+          "min": 0.7158655609839044
+        },
+        "mesh_candidate_beyond_points": {
+          "mean": 0.08884607352866059,
+          "median": 0.08194945762707442,
+          "p10": 0.028932066024557036,
+          "min": 0.022083196000024875
+        }
+      },
+      "per_camera": [
+        {
+          "name": "img_0000_DSC_1174.jpg",
+          "dense_coverage": 0.7969647239263804,
+          "mesh_default_coverage": 0.9749585889570552,
+          "mesh_candidate_coverage": 0.9749585889570552,
+          "mesh_default_point_support": 0.8837106499725488,
+          "mesh_default_beyond_points": 0.11628935002745122,
+          "mesh_candidate_point_support": 0.8837106499725488,
+          "mesh_candidate_beyond_points": 0.11628935002745122
+        },
+        {
+          "name": "img_0008_DSC_1183.jpg",
+          "dense_coverage": 0.8738527607361963,
+          "mesh_default_coverage": 0.9838466257668712,
+          "mesh_candidate_coverage": 0.9838466257668712,
+          "mesh_default_point_support": 0.9241411886485374,
+          "mesh_default_beyond_points": 0.07585881135146258,
+          "mesh_candidate_point_support": 0.9241411886485374,
+          "mesh_candidate_beyond_points": 0.07585881135146258
+        },
+        {
+          "name": "img_0016_DSC_1192.jpg",
+          "dense_coverage": 0.8802223926380368,
+          "mesh_default_coverage": 0.9726763803680981,
+          "mesh_candidate_coverage": 0.9726763803680981,
+          "mesh_default_point_support": 0.9434344867822481,
+          "mesh_default_beyond_points": 0.05656551321775192,
+          "mesh_candidate_point_support": 0.9434344867822481,
+          "mesh_candidate_beyond_points": 0.05656551321775192
+        },
+        {
+          "name": "img_0025_DSC_1204.jpg",
+          "dense_coverage": 0.7777515337423313,
+          "mesh_default_coverage": 0.8314141104294479,
+          "mesh_candidate_coverage": 0.8314141104294479,
+          "mesh_default_point_support": 0.9643909961961474,
+          "mesh_default_beyond_points": 0.035609003803852554,
+          "mesh_candidate_point_support": 0.9643909961961474,
+          "mesh_candidate_beyond_points": 0.035609003803852554
+        },
+        {
+          "name": "img_0033_DSC_1212.jpg",
+          "dense_coverage": 0.940771472392638,
+          "mesh_default_coverage": 1.0,
+          "mesh_candidate_coverage": 1.0,
+          "mesh_default_point_support": 0.9718098159509202,
+          "mesh_default_beyond_points": 0.028190184049079754,
+          "mesh_candidate_point_support": 0.9718098159509202,
+          "mesh_candidate_beyond_points": 0.028190184049079754
+        },
+        {
+          "name": "img_0041_DSC_1220.jpg",
+          "dense_coverage": 0.9526441717791411,
+          "mesh_default_coverage": 0.9865092024539878,
+          "mesh_candidate_coverage": 0.9865092024539878,
+          "mesh_default_point_support": 0.9779168039999752,
+          "mesh_default_beyond_points": 0.022083196000024875,
+          "mesh_candidate_point_support": 0.9779168039999752,
+          "mesh_candidate_beyond_points": 0.022083196000024875
+        },
+        {
+          "name": "img_0050_DSC_1229.jpg",
+          "dense_coverage": 0.9299371165644171,
+          "mesh_default_coverage": 0.987909509202454,
+          "mesh_candidate_coverage": 0.987909509202454,
+          "mesh_default_point_support": 0.95886461621103,
+          "mesh_default_beyond_points": 0.04113538378897002,
+          "mesh_candidate_point_support": 0.95886461621103,
+          "mesh_candidate_beyond_points": 0.04113538378897002
+        },
+        {
+          "name": "img_0058_DSC_1237.jpg",
+          "dense_coverage": 0.8155506134969325,
+          "mesh_default_coverage": 0.9718435582822086,
+          "mesh_candidate_coverage": 0.9718435582822086,
+          "mesh_default_point_support": 0.891222488408281,
+          "mesh_default_beyond_points": 0.10877751159171899,
+          "mesh_candidate_point_support": 0.891222488408281,
+          "mesh_candidate_beyond_points": 0.10877751159171899
+        },
+        {
+          "name": "img_0066_DSC_1245.jpg",
+          "dense_coverage": 0.7579493865030675,
+          "mesh_default_coverage": 0.9337622699386503,
+          "mesh_candidate_coverage": 0.9337622699386503,
+          "mesh_default_point_support": 0.9033496328100746,
+          "mesh_default_beyond_points": 0.09665036718992531,
+          "mesh_candidate_point_support": 0.9033496328100746,
+          "mesh_candidate_beyond_points": 0.09665036718992531
+        },
+        {
+          "name": "img_0075_DSC_1257.jpg",
+          "dense_coverage": 0.5758113496932515,
+          "mesh_default_coverage": 0.9741457055214724,
+          "mesh_candidate_coverage": 0.9741457055214724,
+          "mesh_default_point_support": 0.7158655609839044,
+          "mesh_default_beyond_points": 0.2841344390160956,
+          "mesh_candidate_point_support": 0.7158655609839044,
+          "mesh_candidate_beyond_points": 0.2841344390160956
+        },
+        {
+          "name": "img_0083_DSC_1265.jpg",
+          "dense_coverage": 0.842861963190184,
+          "mesh_default_coverage": 0.9683435582822086,
+          "mesh_candidate_coverage": 0.9683435582822086,
+          "mesh_default_point_support": 0.9119598960973138,
+          "mesh_default_beyond_points": 0.08804010390268627,
+          "mesh_candidate_point_support": 0.9119598960973138,
+          "mesh_candidate_beyond_points": 0.08804010390268627
+        },
+        {
+          "name": "img_0091_DSC_1273.jpg",
+          "dense_coverage": 0.7891794478527607,
+          "mesh_default_coverage": 1.0,
+          "mesh_candidate_coverage": 1.0,
+          "mesh_default_point_support": 0.8871809815950921,
+          "mesh_default_beyond_points": 0.11281901840490798,
+          "mesh_candidate_point_support": 0.8871809815950921,
+          "mesh_candidate_beyond_points": 0.11281901840490798
+        }
+      ]
+    },
+    "resources": {
+      "samples": 295,
+      "first_status": "QUEUED",
+      "last_status": "SUCCEEDED",
+      "max_rss_mib": 15163.1,
+      "max_work_bytes": 21991141312,
+      "gpu_max_mib": {
+        "0": 6057,
+        "1": 6057
+      },
+      "gpu_mean_percent": {
+        "0": 67.1728813559322,
+        "1": 68.24745762711865
+      }
+    }
+  },
+  "optimized": {
+    "job": 2,
+    "parameters": {
+      "max_features": 8192,
+      "matcher_default": "exhaustive",
+      "poisson_depth": 10,
+      "dense_max_image_size": 3000,
+      "gpu_index": "0,1",
+      "patchmatch_iterations": 3,
+      "fusion_threads": 16,
+      "texture_start_scale": 0.125
+    },
+    "wall_seconds": 2879.995041,
+    "queue_seconds": 2.291425,
+    "stages": [
+      {
+        "stage": "IMAGE_VALIDATION",
+        "status": "completed",
+        "duration_ms": 2279,
+        "message": "校验完成：100 张有效"
+      },
+      {
+        "stage": "FEATURE_EXTRACTION",
+        "status": "completed",
+        "duration_ms": 21702,
+        "message": "SIFT 特征提取完成"
+      },
+      {
+        "stage": "FEATURE_MATCHING",
+        "status": "completed",
+        "duration_ms": 49980,
+        "message": "特征匹配完成（策略 exhaustive）"
+      },
+      {
+        "stage": "SPARSE_RECONSTRUCTION",
+        "status": "completed",
+        "duration_ms": 442581,
+        "message": "稀疏重建完成：0"
+      },
+      {
+        "stage": "IMAGE_UNDISTORTION",
+        "status": "completed",
+        "duration_ms": 26922,
+        "message": "图像去畸变完成"
+      },
+      {
+        "stage": "DENSE_RECONSTRUCTION",
+        "status": "completed",
+        "duration_ms": 1965411,
+        "message": "稠密深度图完成（GPU）"
+      },
+      {
+        "stage": "STEREO_FUSION",
+        "status": "completed",
+        "duration_ms": 129971,
+        "message": "点云融合完成（111.0 MB）"
+      },
+      {
+        "stage": "MESHING",
+        "status": "completed",
+        "duration_ms": 19919,
+        "message": "Poisson 网格生成完成（8.4 MB）"
+      },
+      {
+        "stage": "TEXTURING",
+        "status": "completed",
+        "duration_ms": 214856,
+        "message": "照片贴图完成，保留原朝向供手动调整"
+      },
+      {
+        "stage": "EXPORTING",
+        "status": "completed",
+        "duration_ms": 3220,
+        "message": "导出 5 个产物"
+      }
+    ],
+    "registered": 100,
+    "photo_texture": {
+      "vertex_count": 267388,
+      "face_count": 388197,
+      "textured_faces": 355672,
+      "face_coverage": 0.916215220622519,
+      "atlas_size": [
+        8192,
+        3930
+      ],
+      "orientation": "native_manual",
+      "color_space": "srgb",
+      "rotation_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "rotation_center": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "source_up": null,
+      "status": "completed",
+      "path": "model_photo.glb",
+      "implementation": {
+        "version": 2,
+        "scales": [
+          0.125
+        ],
+        "binary": "/tmp/recon-colmap.oUTYXW/env/bin/colmap",
+        "size": 31544400,
+        "mtime_ns": 1794974737868315171,
+        "options": [
+          "--MeshTextureMapping.num_threads",
+          "8",
+          "--MeshTextureMapping.texture_scale_factor",
+          "0.5",
+          "--MeshTextureMapping.atlas_patch_padding",
+          "4"
+        ]
+      },
+      "origin": "PHOTO_TEXTURE"
+    },
+    "photo_sha256": "de21fccc77f6eeeaff3a69a5b308a3b2def2ddf9b97c214b39beea68932bce4b",
+    "projection": {
+      "work_scale": 1000,
+      "images": 12,
+      "point_radius": 2.0,
+      "support_dilate": 5,
+      "cloud_points": 4258270,
+      "mesh_default_faces": 388197,
+      "mesh_candidate_faces": 388197,
+      "aggregate": {
+        "dense_coverage": {
+          "mean": 0.8015283742331287,
+          "median": 0.8076088957055214,
+          "p10": 0.710555981595092,
+          "min": 0.5360030674846625
+        },
+        "mesh_default_coverage": {
+          "mean": 0.9419175613496932,
+          "median": 0.9524378834355829,
+          "p10": 0.9013052147239263,
+          "min": 0.8262423312883436
+        },
+        "mesh_candidate_coverage": {
+          "mean": 0.9419175613496932,
+          "median": 0.9524378834355829,
+          "p10": 0.9013052147239263,
+          "min": 0.8262423312883436
+        },
+        "mesh_default_point_support": {
+          "mean": 0.9025826114504193,
+          "median": 0.9252083450599295,
+          "p10": 0.8537609913023461,
+          "min": 0.6784425582186724
+        },
+        "mesh_default_beyond_points": {
+          "mean": 0.09741738854958067,
+          "median": 0.07479165494007048,
+          "p10": 0.03725676456925673,
+          "min": 0.014898632111059592
+        },
+        "mesh_candidate_point_support": {
+          "mean": 0.9025826114504193,
+          "median": 0.9252083450599295,
+          "p10": 0.8537609913023461,
+          "min": 0.6784425582186724
+        },
+        "mesh_candidate_beyond_points": {
+          "mean": 0.09741738854958067,
+          "median": 0.07479165494007048,
+          "p10": 0.03725676456925673,
+          "min": 0.014898632111059592
+        }
+      },
+      "per_camera": [
+        {
+          "name": "img_0000_DSC_1174.jpg",
+          "dense_coverage": 0.7638481595092025,
+          "mesh_default_coverage": 0.89995245398773,
+          "mesh_candidate_coverage": 0.89995245398773,
+          "mesh_default_point_support": 0.91634868236052,
+          "mesh_default_beyond_points": 0.08365131763947993,
+          "mesh_candidate_point_support": 0.91634868236052,
+          "mesh_candidate_beyond_points": 0.08365131763947993
+        },
+        {
+          "name": "img_0008_DSC_1183.jpg",
+          "dense_coverage": 0.848989263803681,
+          "mesh_default_coverage": 0.9268220858895706,
+          "mesh_candidate_coverage": 0.9268220858895706,
+          "mesh_default_point_support": 0.9409420673586104,
+          "mesh_default_beyond_points": 0.05905793264138954,
+          "mesh_candidate_point_support": 0.9409420673586104,
+          "mesh_candidate_beyond_points": 0.05905793264138954
+        },
+        {
+          "name": "img_0016_DSC_1192.jpg",
+          "dense_coverage": 0.85495245398773,
+          "mesh_default_coverage": 0.9590659509202454,
+          "mesh_candidate_coverage": 0.9590659509202454,
+          "mesh_default_point_support": 0.934068007759339,
+          "mesh_default_beyond_points": 0.06593199224066104,
+          "mesh_candidate_point_support": 0.934068007759339,
+          "mesh_candidate_beyond_points": 0.06593199224066104
+        },
+        {
+          "name": "img_0025_DSC_1204.jpg",
+          "dense_coverage": 0.763978527607362,
+          "mesh_default_coverage": 0.8262423312883436,
+          "mesh_candidate_coverage": 0.8262423312883436,
+          "mesh_default_point_support": 0.9566501457184756,
+          "mesh_default_beyond_points": 0.04334985428152438,
+          "mesh_candidate_point_support": 0.9566501457184756,
+          "mesh_candidate_beyond_points": 0.04334985428152438
+        },
+        {
+          "name": "img_0033_DSC_1212.jpg",
+          "dense_coverage": 0.9312346625766871,
+          "mesh_default_coverage": 1.0,
+          "mesh_candidate_coverage": 1.0,
+          "mesh_default_point_support": 0.963420245398773,
+          "mesh_default_beyond_points": 0.03657975460122699,
+          "mesh_candidate_point_support": 0.963420245398773,
+          "mesh_candidate_beyond_points": 0.03657975460122699
+        },
+        {
+          "name": "img_0041_DSC_1220.jpg",
+          "dense_coverage": 0.9363205521472393,
+          "mesh_default_coverage": 0.9493604294478528,
+          "mesh_candidate_coverage": 0.9493604294478528,
+          "mesh_default_point_support": 0.9851013678889404,
+          "mesh_default_beyond_points": 0.014898632111059592,
+          "mesh_candidate_point_support": 0.9851013678889404,
+          "mesh_candidate_beyond_points": 0.014898632111059592
+        },
+        {
+          "name": "img_0050_DSC_1229.jpg",
+          "dense_coverage": 0.9122361963190184,
+          "mesh_default_coverage": 0.9774662576687116,
+          "mesh_candidate_coverage": 0.9774662576687116,
+          "mesh_default_point_support": 0.9515885568673231,
+          "mesh_default_beyond_points": 0.04841144313267682,
+          "mesh_candidate_point_support": 0.9515885568673231,
+          "mesh_candidate_beyond_points": 0.04841144313267682
+        },
+        {
+          "name": "img_0058_DSC_1237.jpg",
+          "dense_coverage": 0.7945490797546012,
+          "mesh_default_coverage": 0.9582791411042945,
+          "mesh_candidate_coverage": 0.9582791411042945,
+          "mesh_default_point_support": 0.8743930038188342,
+          "mesh_default_beyond_points": 0.12560699618116575,
+          "mesh_candidate_point_support": 0.8743930038188342,
+          "mesh_candidate_beyond_points": 0.12560699618116575
+        },
+        {
+          "name": "img_0066_DSC_1245.jpg",
+          "dense_coverage": 0.70625,
+          "mesh_default_coverage": 0.9134800613496933,
+          "mesh_candidate_coverage": 0.9134800613496933,
+          "mesh_default_point_support": 0.8694166614897186,
+          "mesh_default_beyond_points": 0.13058333851028142,
+          "mesh_candidate_point_support": 0.8694166614897186,
+          "mesh_candidate_beyond_points": 0.13058333851028142
+        },
+        {
+          "name": "img_0075_DSC_1257.jpg",
+          "dense_coverage": 0.5360030674846625,
+          "mesh_default_coverage": 0.9555153374233128,
+          "mesh_candidate_coverage": 0.9555153374233128,
+          "mesh_default_point_support": 0.6784425582186724,
+          "mesh_default_beyond_points": 0.32155744178132767,
+          "mesh_candidate_point_support": 0.6784425582186724,
+          "mesh_candidate_beyond_points": 0.32155744178132767
+        },
+        {
+          "name": "img_0083_DSC_1265.jpg",
+          "dense_coverage": 0.8206687116564417,
+          "mesh_default_coverage": 0.9368266871165645,
+          "mesh_candidate_coverage": 0.9368266871165645,
+          "mesh_default_point_support": 0.9085985681331868,
+          "mesh_default_beyond_points": 0.09140143186681314,
+          "mesh_candidate_point_support": 0.9085985681331868,
+          "mesh_candidate_beyond_points": 0.09140143186681314
+        },
+        {
+          "name": "img_0091_DSC_1273.jpg",
+          "dense_coverage": 0.7493098159509203,
+          "mesh_default_coverage": 1.0,
+          "mesh_candidate_coverage": 1.0,
+          "mesh_default_point_support": 0.852021472392638,
+          "mesh_default_beyond_points": 0.14797852760736196,
+          "mesh_candidate_point_support": 0.852021472392638,
+          "mesh_candidate_beyond_points": 0.14797852760736196
+        }
+      ]
+    },
+    "resources": {
+      "samples": 192,
+      "first_status": "QUEUED",
+      "last_status": "SUCCEEDED",
+      "max_rss_mib": 14672.5,
+      "max_work_bytes": 21620156860,
+      "gpu_max_mib": {
+        "0": 6057,
+        "1": 6057
+      },
+      "gpu_mean_percent": {
+        "0": 65.14583333333333,
+        "1": 62.635416666666664
+      }
+    }
+  }
+}

@@ -87,3 +87,19 @@ $ cd frontend && npm run build
 - 合成数据集（sample-data/smoke-30）对真实 COLMAP 的 SfM 匹配率不足（注册 2/30），
   仅用于 Mock 模式演示与前端联调；真实重建测试使用 south-building 数据集。
 - 第一阶段未实现：任务 WebSocket 推送（2s 轮询代替）、分片断点续传、追加照片/版本更新（P2）。
+
+
+## 6. 集成系统测试分层（2026-11-21 追加）
+
+总门槛见[集成系统验收标准](集成系统验收标准.md)；实现记录见[集成系统迭代](dev-summary/20-integrated-system.md)。分层结果互不替代。
+
+| 层 | 覆盖 | 命令 / 结果 |
+| --- | --- | --- |
+| 后端 pytest | 配置冻结与画像、auto 匹配决策、提交预检与 CUDA/GPU 门槛、GLB 纹理资产、网格质量与 trim 候选裁定、区域提取报告、通用局部（local_general）冻结/注册门槛、网格补丁（local_mesh）几何与不变量、发布保护 | `cd backend && pytest -q` → **175 通过** |
+| 前端 node 回归 | 通用/种子模式照片选择、原色可用性以 GLB 实测为准、点云/网格字段分离、网格补丁提交、模式切换 | `cd frontend && npm test` → 通过 |
+| 前端生产构建 | 类型检查 + Vite 构建 | `npm run build` → 通过 |
+| Chromium 夹具 | 真实构建 + 替身数据：拖选/取消/队列重试、已保存选区复用、回父模型选区、归档/点云/普通版本导航、原色切换、网格补丁提交、下载哈希 | `python scripts/phase8_gui_test.py --dist <构建> --screenshots <目录>` → PASS |
+| 真实 HTTP/队列/Worker | 隔离 API + Redis + Worker，`scripts/e2e_test.py --preset speed --matcher auto`；发布清单实测冻结参数、auto→sequential 决策、预检与引擎身份 | mock 全链路 → PASS |
+| 真实 GPU 端到端 | 双 A800：Bridge 与第二场景的主链路、D1–D4 局部链路、双卡 N≥3 冷跑速度/质量协议（验收标准 §3） | 状态见[集成系统迭代](dev-summary/20-integrated-system.md)，未完成前不发布集成候选 |
+
+历史各节（§1–§5）记录第一阶段口径，不再代表当前测试总量；夹具与真实证据在报告中分开书写。

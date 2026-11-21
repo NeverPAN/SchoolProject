@@ -72,7 +72,7 @@
         <el-table-column label="进度" width="180">
           <template #default="{ row }"><el-progress :percentage="Math.round(row.progress)" :status="row.status === 'FAILED' ? 'exception' : row.status === 'SUCCEEDED' ? 'success' : undefined" /></template>
         </el-table-column>
-        <el-table-column label="模式" min-width="180"><template #default="{ row }">{{ row.pipeline_mode === 'local_update' ? '区域提取（非局部重建）' : row.pipeline_mode === 'mock' ? '模拟' : row.pipeline_mode === 'experiment' ? '实验归档' : 'COLMAP' }}</template></el-table-column>
+        <el-table-column label="模式" min-width="180"><template #default="{ row }">{{ pipelineModeLabels[row.pipeline_mode] || 'COLMAP' }}</template></el-table-column>
         <el-table-column label="创建时间" width="170"><template #default="{ row }">{{ fmtTime(row.created_at) }}</template></el-table-column>
         <el-table-column label="操作" width="90">
           <template #default="{ row }">
@@ -91,6 +91,7 @@
           <template #default="{ row }">
             {{ modelTypeLabel(row.model_type) }} ({{ row.format.toUpperCase() }})
             <el-tag v-if="row.stage_origin === 'LOCAL_REGION'" type="info" size="small">区域提取结果</el-tag>
+            <el-tag v-else-if="row.stage_origin === 'LOCAL_POINT_FUSION'" type="info" size="small">局部重建 · 融合点云</el-tag>
             <el-tag v-else-if="isPhotoTexture(row)" type="success" size="small">照片贴图</el-tag>
             <el-tag v-else-if="row.stage_origin === 'WEB_REEXPORT'" type="info" size="small">修正版</el-tag>
           </template>
@@ -167,6 +168,12 @@ import {
 const props = defineProps<{ id: string }>()
 const project = ref<ProjectDetail | null>(null)
 const jobs = ref<Job[]>([])
+const pipelineModeLabels: Record<string, string> = {
+  local_update: '区域提取（非局部重建）',
+  local_reconstruct: '局部重建（融合点云）',
+  mock: '模拟',
+  experiment: '实验归档',
+}
 const models = ref<ModelItem[]>([])
 const thumbs = ref<Record<number, string>>({})
 const qcLoading = ref(false)

@@ -31,17 +31,27 @@ def checked_source(root: Path, entry: dict) -> Path:
     return path
 
 
-def import_catalog(db, owner: User, root: Path, storage: Path, catalog: list[dict]) -> dict:
+def import_catalog(db, owner: User, root: Path, storage: Path, catalog: list[dict], *, append=False) -> dict:
     codes = set()
     for run in catalog:
         if (not re.fullmatch(r"[A-Z][0-9]{2}", run["code"]) or run["code"] in codes
                 or not 1 <= len(f'{run["code"]} · {run["name"]}') <= 120 or not run["files"]):
             raise ValueError("Invalid or duplicate experiment")
         codes.add(run["code"])
-    if db.scalar(select(Project.id).where(Project.owner_id == owner.id, Project.name == PROJECT_NAME)):
-        raise ValueError("Experiment project already exists; use a fresh database or owner")
-    project = Project(owner_id=owner.id, name=PROJECT_NAME,
-                      description="离线产物，仅供对照，不替换现有模型")
+    project = db.scalar(select(Project).where(Project.owner_id == owner.id, Project.name == PROJECT_NAME))
+    if project is not None:
+        if not append:
+            raise ValueError("Experiment project already exists; pass --append explicitly")
+        for job in project.jobs:
+            if job.pipeline_mode != "experiment":
+                raise ValueError("Not an archive-only project")
+            if job.experiment_name and job.experiment_name.split(" · ", 1)[0] in codes:
+                raise ValueError("Experiment code already exists")
+    else:
+        if append:
+            raise ValueError("No experiment project to append to")
+        project = Project(owner_id=owner.id, name=PROJECT_NAME,
+                          description="离线产物，仅供对照，不替换现有模型")
     created = []
     result = {}
     try:
@@ -99,6 +109,7 @@ def main() -> None:
     parser.add_argument("--owner", required=True)
     parser.add_argument("--assets", required=True, type=Path)
     parser.add_argument("--catalog", required=True, type=Path)
+    parser.add_argument("--append", action="store_true")
     args = parser.parse_args()
     from app.core.config import get_settings
 
@@ -115,7 +126,8 @@ def main() -> None:
         owner = db.scalar(select(User).where(User.username == args.owner))
         if owner is None:
             parser.error("owner must already exist in the isolated database")
-        result = import_catalog(db, owner, args.assets, Path(settings.data_dir), json.loads(args.catalog.read_text(encoding="utf-8")))
+        result = import_catalog(db, owner, args.assets, Path(settings.data_dir), json.loads(args.catalog.read_text(encoding="utf-8")),
+                                append=args.append)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

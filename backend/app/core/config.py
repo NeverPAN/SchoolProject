@@ -5,7 +5,9 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator
+from typing import Literal
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 仓库根目录（backend/ 的上一级）
@@ -45,11 +47,27 @@ class Settings(BaseSettings):
     # 重建引擎
     recon_mode: str = "colmap"  # colmap | mock
     colmap_bin: str = "colmap"
+    local_reconstruction_seed: Path | None = None
     colmap_texturer_bin: str | None = None  # opt-in, may be a separate CPU build
     recon_use_gpu: str = "auto"  # auto | 1 | 0
     colmap_gpu_index: str = "0"  # COLMAP gpu_index，多卡如 "0,1"
     default_recon_preset: str = "standard"
     colmap_dense_max_image_size: int = -1
+    colmap_patchmatch_iterations: int = Field(default=5, ge=1)
+    colmap_fusion_threads: int = -1
+    colmap_texture_start_scale: Literal[0.5, 0.25, 0.125] = 0.5
+
+    @field_validator("colmap_texture_start_scale", mode="before")
+    @classmethod
+    def parse_texture_start_scale(cls, value):
+        return float(value)
+
+    @field_validator("colmap_fusion_threads")
+    @classmethod
+    def validate_fusion_threads(cls, value: int) -> int:
+        if value != -1 and value < 1:
+            raise ValueError("fusion threads must be -1 or positive")
+        return value
 
     @field_validator("colmap_dense_max_image_size")
     @classmethod

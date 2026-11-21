@@ -1,0 +1,141 @@
+{
+  "project": 1,
+  "experiments": {
+    "C00": {
+      "job": 9,
+      "models": [
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      "artifacts": [
+        {
+          "name": "sparse_pointcloud.ply",
+          "model_id": 13,
+          "sha256": "ca82913255dac8113c4d4cd637527293dbc06de2de19c775a9ef7644c73d2fd5",
+          "source_model_id": 1,
+          "bytes": 1822617,
+          "vertex_count": 56616,
+          "face_count": 0,
+          "point_count": 56616
+        },
+        {
+          "name": "dense_pointcloud.ply",
+          "model_id": 14,
+          "sha256": "9c1edc4791059876da4ac906fe7498a3c8c9b2070f1ad530f9fafcfe1e4eefca",
+          "source_model_id": 2,
+          "bytes": 129420388,
+          "vertex_count": 4793339,
+          "face_count": 0,
+          "point_count": 4793339
+        },
+        {
+          "name": "mesh.ply",
+          "model_id": 15,
+          "sha256": "c01a9c09b052bc65f9d27912b3849435cdee45b4bb9f96fecdf685f3fcf7ac45",
+          "source_model_id": 3,
+          "bytes": 8533983,
+          "vertex_count": 191982,
+          "face_count": 375770,
+          "point_count": 0
+        },
+        {
+          "name": "model.glb",
+          "model_id": 16,
+          "sha256": "9707b0d65ea60074eca86ec63073f36fcc0c3070b31c3d6021f8838c5a3bb632",
+          "source_model_id": 4,
+          "bytes": 12189920,
+          "vertex_count": 191982,
+          "face_count": 375770,
+          "point_count": 0
+        },
+        {
+          "name": "model_photo.glb",
+          "model_id": 17,
+          "sha256": "569d56e72cbee4a0dc5d650db94e2442c1e20790932122dc9ab2a3faa36e263a",
+          "source_model_id": 5,
+          "bytes": 31725588,
+          "vertex_count": 259939,
+          "face_count": 375770,
+          "point_count": 0
+        }
+      ]
+    },
+    "C01": {
+      "job": 10,
+      "models": [
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "artifacts": [
+        {
+          "name": "sparse_pointcloud.ply",
+          "model_id": 18,
+          "sha256": "60b479b4ee232cc4029ba6e579433745db73c0341b44875dd4e7c9d84c150304",
+          "source_model_id": 6,
+          "bytes": 1857522,
+          "vertex_count": 56998,
+          "face_count": 0,
+          "point_count": 56998
+        },
+        {
+          "name": "dense_pointcloud.ply",
+          "model_id": 19,
+          "sha256": "6f31a75cb7f43019ff6d8c90d54f58b60501d861e2e0f63a6a085ce3066c9408",
+          "source_model_id": 7,
+          "bytes": 116375932,
+          "vertex_count": 4310211,
+          "face_count": 0,
+          "point_count": 4310211
+        },
+        {
+          "name": "mesh.ply",
+          "model_id": 20,
+          "sha256": "5a0cf0385c8eee3bd4228dbe41a405c3031f3cede40acd8ec67ca2bcff1c4e95",
+          "source_model_id": 8,
+          "bytes": 8837768,
+          "vertex_count": 199468,
+          "face_count": 388197,
+          "point_count": 0
+        },
+        {
+          "name": "model.glb",
+          "model_id": 21,
+          "sha256": "5e2c0252df52a93d22562a5b7612a36df8ca1a2e18a32af5cfb3e46bdd48c045",
+          "source_model_id": 9,
+          "bytes": 12638484,
+          "vertex_count": 199468,
+          "face_count": 388197,
+          "point_count": 0
+        },
+        {
+          "name": "model_photo.glb",
+          "model_id": 22,
+          "sha256": "de21fccc77f6eeeaff3a69a5b308a3b2def2ddf9b97c214b39beea68932bce4b",
+          "source_model_id": 10,
+          "bytes": 31787492,
+          "vertex_count": 267388,
+          "face_count": 388197,
+          "point_count": 0
+        }
+      ]
+    }
+  },
+  "verified_download_ids": [
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22
+  ]
+}

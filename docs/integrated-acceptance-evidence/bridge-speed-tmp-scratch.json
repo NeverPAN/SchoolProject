@@ -1,0 +1,39 @@
+{
+  "scene": "bridge",
+  "preset": "speed",
+  "images": 100,
+  "scratch": "/tmp/recon-acceptance-bridge-scratch (local disk; controlled experiment)",
+  "hypothesis": "稠密阶段的 NFS scratch I/O 是性能差异根因；本地盘 scratch 应恢复 C01 量级",
+  "job_id": 29,
+  "status": "SUCCEEDED",
+  "wall_s": 3036.8,
+  "stages_s": {
+    "IMAGE_VALIDATION": 2.45,
+    "FEATURE_EXTRACTION": 21.3,
+    "FEATURE_MATCHING": 49.83,
+    "SPARSE_RECONSTRUCTION": 562.13,
+    "IMAGE_UNDISTORTION": 29.19,
+    "DENSE_RECONSTRUCTION": 1960.19,
+    "STEREO_FUSION": 139.09,
+    "MESHING": 52.69,
+    "TEXTURING": 214.0,
+    "EXPORTING": 3.59
+  },
+  "comparison": {
+    "C01/#22 历史（/tmp scratch）": {
+      "wall_min": null,
+      "dense_s": 1965.41,
+      "wall_s": 2880.0
+    },
+    "本轮（/tmp scratch, speed 画像）": {
+      "wall_min": 50.61,
+      "dense_s": 1960.19
+    },
+    "NFS scratch speed run 3（上一轮）": {
+      "wall_s": 4487.63,
+      "dense_s": 3370.88
+    }
+  },
+  "conclusion": "scratch=/tmp 后 dense 1960.2s ≈ C01 的 1965.4s（差异 0.3%）；wall 50.7 分钟 ≈ C01 的 48.0 分钟。NFS scratch 使稠密单次迭代从 ~4.8s 膨胀到 ~16s（3.4×），是此前 speed 轮变慢的根因。",
+  "deployment_note": "SCRATCH_DIR 应指向本地盘（/tmp 等），不要放在 NFS 家目录。"
+}

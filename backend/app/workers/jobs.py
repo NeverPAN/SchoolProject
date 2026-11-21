@@ -62,13 +62,48 @@ def _run_claimed_job(job_id: int) -> dict:
             # 阶段 8 原型：区域提取（非局部重建），不进入重建管线
             from app.reconstruction import local_region
 
+            ctx.set_stage_running("LOCAL_UPDATE")
             records, manifest = local_region.run(job_id, config)
+            ctx.check_cancel("LOCAL_UPDATE")
+            ctx.set_stage_result("LOCAL_UPDATE", "completed", "已导出已有网格选区（非局部重建）")
             ctx.job_log("[LOCAL_UPDATE] 区域提取完成")
             n_models = _publish(job_id, started, records, manifest)
             try:
                 ctx.job_log(f"任务完成：登记 {n_models} 个模型（区域提取原型）")
             except OSError:
                 logger.warning("任务 %s 成功，但日志不可写", job_id)
+            return {"ok": True, "models": n_models, "warnings": []}
+        if mode == "local_reconstruct":
+            from app.reconstruction import local_reconstruction
+
+            with SessionLocal() as db:
+                db.get(ReconstructionJob, job_id).engine_version = get_colmap_version(get_settings().colmap_bin)
+                db.commit()
+            records, manifest = local_reconstruction.run(ctx, config)
+            ctx.check_cancel("EXPORTING")
+            n_models = _publish(job_id, started, records, manifest)
+            ctx.job_log(f"局部点云候选发布：{n_models} 个产物，不修改父模型")
+            return {"ok": True, "models": n_models, "warnings": []}
+        if mode == "local_general":
+            # 阶段 D1/D2：通用局部更新（任意新增照片注册 + 局部融合）
+            from app.reconstruction import local_general
+
+            with SessionLocal() as db:
+                db.get(ReconstructionJob, job_id).engine_version = get_colmap_version(get_settings().colmap_bin)
+                db.commit()
+            records, manifest = local_general.run(ctx, config)
+            ctx.check_cancel("EXPORTING")
+            n_models = _publish(job_id, started, records, manifest)
+            ctx.job_log(f"局部点云候选发布：{n_models} 个产物，不修改父模型")
+            return {"ok": True, "models": n_models, "warnings": []}
+        if mode == "local_mesh":
+            # 阶段 D3/D4：局部网格补丁（不重跑稠密；失败即拒绝发布）
+            from app.reconstruction import local_mesh_patch
+
+            records, manifest = local_mesh_patch.run(ctx, config)
+            ctx.check_cancel("EXPORTING")
+            n_models = _publish(job_id, started, records, manifest)
+            ctx.job_log(f"局部网格补丁发布：{n_models} 个产物；父模型未修改")
             return {"ok": True, "models": n_models, "warnings": []}
         if mode == "mock":
             pipeline = MockPipeline(ctx)
@@ -81,6 +116,10 @@ def _run_claimed_job(job_id: int) -> dict:
             adapter = ColmapAdapter(colmap_bin, config.get("use_gpu", False), engine_version,
                                     gpu_index=get_settings().colmap_gpu_index)
             pipeline = ColmapPipeline(ctx, adapter)
+            # A1：引擎二进制身份进入发布清单（路径/版本可能相同，哈希才是内容证据）。
+            from app.reconstruction.manifest import sha256_file
+
+            ctx.engine_identity["binary_sha256"] = sha256_file(colmap_bin)
 
         with SessionLocal() as db:
             db.get(ReconstructionJob, job_id).engine_version = engine_version
@@ -100,18 +139,27 @@ def _run_claimed_job(job_id: int) -> dict:
             "engine_version": engine_version,
             "engine": ctx.engine_identity,
             "config": config,
-            # 实际生效的引擎参数（preset→depth 等的解析结果），便于追溯模型由哪组参数生成
+            # 实际生效的引擎参数（任务创建时冻结的 resolved），便于追溯模型由哪组参数生成
             "resolved_params": {
                 "max_features": ctx.params.get("max_features"),
-                "matcher_default": ctx.params.get("matcher_default"),
+                "matcher": ctx.params.get("matcher_default"),
+                "matcher_decision": config.get("matcher_decision"),
                 "poisson_depth": ctx.params.get("poisson_depth"),
+                "poisson_threads": ctx.poisson_threads,
+                "poisson_trim": ctx.poisson_trim,
                 "dense_max_image_size": ctx.dense_max_image_size,
                 "gpu_index": ctx.gpu_index,
+                "patchmatch_iterations": ctx.patchmatch_iterations,
+                "fusion_threads": ctx.fusion_threads,
+                "texture_start_scale": ctx.texture_start_scale,
             },
+            "preflight": config.get("preflight"),
+            "capability": config.get("capability"),
             "inputs_sha": input_manifest_sha(inputs),
             "outputs": [item["file_path"] for item in records],
             "display_up": result.get("display_up"),
             "photo_texture": result.get("photo_texture"),
+            "mesh_quality": result.get("mesh_quality"),
             "mesh_glb_color_space": "linear" if mode == "colmap" else "srgb",
         })
     except Exception as exc:

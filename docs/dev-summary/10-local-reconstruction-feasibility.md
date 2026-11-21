@@ -49,3 +49,9 @@
 - 后端：`cd backend && .venv/bin/python -m pytest -q`，88 项通过（含队列失败及同选区重试）。
 - 前端：隔离输出的生产构建通过。`backend/.venv/bin/python scripts/phase8_gui_test.py --dist <隔离构建目录>` 的 Chromium 夹具验收覆盖框选、取消、拖出画布、背面排除、入队重试和下载校验。
 - 真实网格 + 隔离 Redis/RQ 的 **HTTP API 与 Worker 验收通过**：候选 `stage8-rc-3c7f6ebda83b`，27,041 面源网格提取 9,465 面，源模型 SHA-256 不变，下载与服务端文件哈希一致，见[实测记录](../stage8-evidence/real-mesh-api.json)。同一实例的浏览器拖拽、确认与下载未实测（当前会话缺浏览器工具），夹具不替代该项。E7 真正使用新照片的局部重建与融合仍未实现。
+
+
+**后续实测更新：** 以 R01/#24 为父版本的[真实局部视图重建与点云融合实验](17-bridge-local-fusion.md)已完成；未通过新照收益的独立证据门槛，网格接缝和网页新流程仍未完成。
+
+
+#24 后续的两项局部操作可在[独立平台候选](18-local-platform-review.md)演示；它们不替换主线模型，也不代表贴图网格拼接通过。
