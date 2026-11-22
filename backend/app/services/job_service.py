@@ -400,7 +400,9 @@ def submit_local_mesh(db: Session, model: Model):
     source_cloud = Path(model.file_path)
     if not source_cloud.is_file():
         raise ValidationError("局部融合点云文件缺失")
-    resolved = {"poisson_depth": 8, "poisson_trim": 7, "poisson_threads": 4}
+    # D3 产品决策：低 trim 填洞。local_mesh_patch.py 会按同一常量执行，
+    # 这里也必须冻结为 4，避免任务详情与实际 Worker 参数不一致。
+    resolved = {"poisson_depth": 8, "poisson_trim": 4, "poisson_threads": 4}
     config = {
         "mode": "local_mesh", "region_id": region.id,
         "parent_model_id": parent.id,

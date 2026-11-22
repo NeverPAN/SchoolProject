@@ -31,13 +31,17 @@ from scipy.spatial import cKDTree
 MODE = "local_mesh"
 STAGE_ORIGIN = "LOCAL_MESH_PATCH"
 POISSON_DEPTH = 8
-# trim=10 会把开放小补丁裁成空（真实 Bridge 数据实测）；trim=7 覆盖整个外盒。
-POISSON_TRIM = 7
+# 产品决策（2026-11-22，负责人确认）：补丁一律低 trim 填洞——父网格天然洞区
+# 由 Poisson 插值推测面覆盖，manifest 如实声明"洞区为推测插值面，非实测"；
+# 高 trim（7）诚实但洞区残留缝隙，曾在 South 两选区触发量化拒绝。
+# 核心盒外父面逐字保留的诚实边界不变。
+PATCH_TRIM = 4
 MIN_PATCH_POINTS = 300
 SEAM_GAP_TOLERANCE_FACTOR = 3.0
 BAND_EDGE_FACTOR = 3.0
 REPLACE_FACTOR = 1.5
 RIM_BUFFER_FACTOR = 2.0
+GROUND_FACTOR = 3.0
 COORD_DECIMALS = 6
 
 
@@ -231,27 +235,60 @@ def mesh_invariants(parent, stitched, outer_lo: np.ndarray, outer_hi: np.ndarray
     return report
 
 
-def splice_slit(patch, kept, gap_tolerance: float) -> dict:
-    """重叠拼接的可视缝宽：补丁边缘顶点到存活父面顶点的最近距离。
+def grounded_shell_mask(patch, parent, ground_tolerance: float) -> np.ndarray:
+    """补丁壳顶点的"接地"掩码：落在原始父表面 ground_tolerance 内的顶点。
 
-    补丁在核心盒内因 trim 收缩，边缘不与父面切割线重合——缝宽是"补丁边缘
-    与父面之间的可视裂缝"，逐点实测；中位与最大值都超限则拒绝发布。
+    低 trim 填洞的产品决策下，壳面分两类：
+    - 接地面：与父表面重合（同源点云重建的真实表面），其边缘与父面的缝隙
+      是真实拼接缝，参与发布门槛；
+    - 悬空面：父表面之外的推测插值面（洞区填充/边缘外伸），如实声明，不参与
+      缝宽门槛——它可见、可解释，但不伪装成实测表面。
     """
-    import trimesh
+    work = parent
+    if len(parent.vertices) != len(np.unique(np.round(np.asarray(parent.vertices), 6), axis=0)):
+        work = parent.copy()
+        work.merge_vertices()
+    tree = cKDTree(np.asarray(work.vertices))
+    distances, _ = tree.query(np.asarray(patch.vertices))
+    return distances <= ground_tolerance
 
+
+def splice_slit(patch, kept, parent, gap_tolerance: float,
+                ground_tolerance: float) -> dict:
+    """重叠拼接缝宽（区分接地边缘与悬空推测面边缘）。
+
+    - 接地边缘点（壳顶点落在父表面容差内）：到存活父面顶点的距离 = 真实可视
+      裂缝，逐点实测；中位与最大值超限则拒绝发布；
+    - 悬空边缘点（推测面在父表面之外收边）：数量与最大外伸量如实声明，不参与
+      门槛——产品决策（低 trim 填洞）接受推测面，但不存在"伪装成实测"。
+    """
     patch_loops = boundary_loops(patch)
     if not patch_loops:
-        return {"patch_rim_points": 0, "median_slit": 0.0, "max_slit": 0.0,
-                "gap_tolerance": gap_tolerance, "pass": True}
+        return {"patch_rim_points": 0, "crack_points": 0, "median_slit": 0.0, "max_slit": 0.0,
+                "floating_points": 0, "max_overhang": 0.0,
+                "gap_tolerance": gap_tolerance, "ground_tolerance": ground_tolerance, "pass": True}
     rim = np.vstack(patch_loops)
     kept_tree = cKDTree(np.asarray(kept.vertices))
     distances, _ = kept_tree.query(rim)
-    report = {"patch_rim_points": int(len(rim)),
-              "median_slit": float(np.median(distances)),
-              "max_slit": float(distances.max()),
-              "gap_tolerance": gap_tolerance}
-    # 允许一个容差量级的局部最坏点（补丁边缘重采样锯齿），中位数必须达标
-    report["pass"] = report["median_slit"] <= gap_tolerance and report["max_slit"] <= 2 * gap_tolerance
+    grounded_idx = np.where(grounded_shell_mask(patch, parent, ground_tolerance))[0]
+    grounded_tree = cKDTree(np.asarray(patch.vertices)[grounded_idx])
+    d_grounded, _ = grounded_tree.query(rim)
+    rim_grounded = d_grounded <= 1e-6
+    crack = distances[rim_grounded]
+    floating = distances[~rim_grounded]
+    report = {
+        "patch_rim_points": int(len(rim)),
+        "crack_points": int(len(crack)),
+        "median_slit": float(np.median(crack)) if len(crack) else 0.0,
+        "max_slit": float(crack.max()) if len(crack) else 0.0,
+        "floating_points": int(len(floating)),
+        "max_overhang": float(floating.max()) if len(floating) else 0.0,
+        "gap_tolerance": gap_tolerance,
+        "ground_tolerance": ground_tolerance,
+    }
+    # 接地裂缝：中位必须达标，最大允许一个容差量级的局部最坏点（边缘重采样锯齿）
+    report["pass"] = (not len(crack)) or (
+        report["median_slit"] <= gap_tolerance and report["max_slit"] <= 2 * gap_tolerance)
     return report
 
 
@@ -383,7 +420,7 @@ def run(ctx, config: dict) -> tuple[list[dict], dict]:
                 adapter.poisson_meshing(patch_ply, patch_raw, ctx.log_file("LOCAL_MESHING"),
                                         lambda: ctx.check_cancel("LOCAL_MESHING"),
                                         quality=resolved["poisson_depth"], num_threads=4,
-                                        trim=resolved["poisson_trim"])
+                                        trim=PATCH_TRIM)
             except ColmapStageError as exc:
                 raise PipelineError("LOCAL_MESHING", exc.code, str(exc)) from exc
             patch_mesh = trimesh.load(patch_raw, force="mesh", process=False)
@@ -394,18 +431,20 @@ def run(ctx, config: dict) -> tuple[list[dict], dict]:
                         f"{len(patch.faces)} 面（{len(boundary_loops(patch))} 条开放边界）")
 
         with _stage(ctx, "LOCAL_STITCH"):
-            # 重叠拼接：核心盒内"贴近补丁壳且远离补丁边缘"的父面由补丁取代，
-            # 补丁边缘附近的父面保留——补丁边缘叠在父面上（重叠式拼接，不挖壕沟）；
-            # 两曲面同源（同一份点云），交界带天然重合，不需要边界环对应。
+            # 重叠拼接：核心盒内"贴近接地壳面且远离补丁边缘"的父面由补丁取代；
+            # 悬空推测面（低 trim 填洞的外伸/洞区插值）不取代父面——父面在其下
+            # 原样保留，推测面悬空可见并如实声明（产品决策 2026-11-22）。
             tolerance = gap_tolerance_for(parent, patch)
+            ground_tolerance = GROUND_FACTOR * _median_edge_length(parent)
+            grounded = grounded_shell_mask(patch, parent, ground_tolerance)
             d_replace = REPLACE_FACTOR * max(_median_edge_length(parent), _median_edge_length(patch))
+            grounded_tree = cKDTree(np.asarray(patch.vertices)[grounded])
             patch_rim = np.vstack(boundary_loops(patch)) if boundary_loops(patch) else np.zeros((0, 3))
             rim_tree = cKDTree(patch_rim) if len(patch_rim) else None
-            patch_tree = cKDTree(np.asarray(patch.vertices))
             inside_faces = np.where(inside_core)[0]
             if not len(inside_faces):
                 raise ValueError("核心盒内没有父面，补丁无处拼接")
-            replace_distances, _ = patch_tree.query(centers[inside_faces])
+            replace_distances, _ = grounded_tree.query(centers[inside_faces])
             if rim_tree is not None and len(patch_rim):
                 rim_distances, _ = rim_tree.query(centers[inside_faces])
                 removable = (replace_distances <= d_replace) & (
@@ -416,11 +455,12 @@ def run(ctx, config: dict) -> tuple[list[dict], dict]:
             kept_faces = np.concatenate([outside_core_faces, inside_faces[~removable]])
             kept = parent.submesh([kept_faces], append=True)
             kept.remove_unreferenced_vertices()
-            slit = splice_slit(patch, kept, tolerance)
-            ctx.job_log(f"[LOCAL_STITCH] 重叠拼接：取代 {len(replaced)} 父面（阈值 {d_replace:.6f}，"
-                        f"边缘缓冲 {RIM_BUFFER_FACTOR * d_replace:.6f}）；"
-                        f"缝宽中位 {slit['median_slit']:.6f} / 最大 {slit['max_slit']:.6f}"
-                        f"（容差 {tolerance:.6f}）")
+            slit = splice_slit(patch, kept, parent, tolerance, ground_tolerance)
+            ctx.job_log(f"[LOCAL_STITCH] 重叠拼接：取代 {len(replaced)} 父面（接地壳阈值 {d_replace:.6f}，"
+                        f"边缘缓冲 {RIM_BUFFER_FACTOR * d_replace:.6f}）；接地裂缝中位 "
+                        f"{slit['median_slit']:.6f} / 最大 {slit['max_slit']:.6f}（容差 {tolerance:.6f}，"
+                        f"{slit['crack_points']} 点）；悬空推测边缘 {slit['floating_points']} 点，"
+                        f"最大外伸 {slit['max_overhang']:.4f}")
 
         with _stage(ctx, "VALIDATION"):
             combined_vertices = np.vstack([kept.vertices, patch.vertices])
@@ -475,10 +515,11 @@ def run(ctx, config: dict) -> tuple[list[dict], dict]:
         "target_model_id": config["parent_model_id"], "parent_model_id": config["parent_model_id"],
         "region_id": config["region_id"], "source_model_id": config["source_model_id"],
         "geometry": "mesh_patch_overlap_splice",
-        "note": "局部网格补丁 v2'（重叠拼接）：补丁为外盒内全部源点（含父点）的 Poisson 曲面（trim 与主管线同类），"
-                "裁剪到核心盒；核心盒外父面逐字保留（原生坐标恢复经三角形核对）；核心盒内贴近补丁壳的父面由补丁"
-                "取代，其余父面保留；两曲面同源、交界带重合，无边界环缝合；补丁边缘与存活父面之间的可视缝宽"
-                "实测声明；补丁面片使用融合点云顶点色（非完整图集）；导出统一回到父 GLB 显示坐标。",
+        "note": "局部网格补丁 v2'（重叠拼接 + 低 trim 填洞产品决策）：补丁为外盒内全部源点（含父点）的 Poisson "
+                "曲面（trim=4），裁剪到核心盒；核心盒外父面逐字保留（原生坐标恢复经三角形核对）；核心盒内仅"
+                "\"贴近接地壳面\"的父面由补丁取代；接地裂缝（补丁边缘与存活父面的可视缝）逐点实测并作为发布"
+                "门槛；悬空推测边缘（洞区/边缘外伸的插值面）不参与门槛、数量与最大外伸如实声明——它们可见、"
+                "可解释，不伪装成实测表面；补丁面片使用融合点云顶点色（非完整图集）；导出统一回到父 GLB 显示坐标。",
         "frame": ("display（父 GLB 正立坐标，由原生坐标经 display_up 旋转导出）"
                   if config.get("parent_display") else "native"),
         "parent_model_sha256": parent_sha, "source_cloud_sha256": cloud_sha,
@@ -489,7 +530,9 @@ def run(ctx, config: dict) -> tuple[list[dict], dict]:
                             "replace_distance": d_replace,
                             "replace_definition": f"{REPLACE_FACTOR}× max(父/补丁中位边长)，核心盒内贴近补丁壳的父面由补丁取代",
                             "poisson_depth": resolved["poisson_depth"],
-                            "poisson_trim": resolved["poisson_trim"],
+                            "poisson_trim": PATCH_TRIM,
+                            "trim_policy": "产品决策（2026-11-22）：低 trim 填洞——核心盒内父洞/低密度区"
+                                           "为 Poisson 插值推测面（如实声明，非实测）；核心盒外父面逐字保留",
                             "slit_gap_tolerance": tolerance},
         "slit": slit, "invariants": invariants, "colors": color_report,
         "counts": {"parent_faces_kept": int(len(kept.faces)), "parent_faces_replaced": int(len(replaced)),

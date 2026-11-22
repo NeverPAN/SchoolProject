@@ -68,5 +68,58 @@
     },
     "diagnosis": "该区域融合新增点占比极低（d-chain: 1495/41028），补丁壳大面积收缩远离父面"
   },
-  "conclusion": "Bridge 真实通过并发布子版本 GLB（模型 #50）；South 两选区得到量化拒绝原因（trim-密度收缩 vs 推测面的根本权衡），不阻塞交付"
+  "conclusion": "Bridge 与 South 全部三选区在 v2' 重叠拼接 + 低 trim 填洞决策下真实发布（#47/#48/#51）；演进链条 v1 拒绝 → 实现缺陷修复 → v2 前提证伪 → v2' 接地/悬空分离 → 产品决策闭环，全程实测记录",
+  "product_decision_low_trim": {
+    "generated_at": "2026-11-22T13:35:00Z",
+    "product_decision": "负责人拍板（2026-11-22）：补丁采用低 trim（4）填洞——核心盒内父洞/低密度区由 Poisson 插值推测面覆盖，如实声明非实测；实现为接地/悬空分离：接地裂缝（壳边缘落在父表面容差内的点 → 存活父面顶点距离）作为发布门槛（中位 ≤ 容差、最大 ≤ 2× 容差）；悬空推测边缘不参与门槛，数量与最大外伸如实声明",
+    "diagnosis_before_decision": "低 trim 单独不解决缝隙——South 最坏缝点实测为壳面在选区边缘外伸到空中 5.7cm（悬空推测面），其下父面被移除形成裂缝；接地/悬空分离才是正确实现",
+    "results": {
+      "south_tight": {
+        "model_id": 47,
+        "faces": 1016396,
+        "vertices": 527011,
+        "bytes": 18598244,
+        "download_sha256": "6c691b9f7d9c03136bfc39d38cfa9a927d50c71a944b7d2deba48723b7347bc6",
+        "job": 25,
+        "crack_points": 1566,
+        "median": 0.0041,
+        "max": 0.0271,
+        "tol": 0.0319,
+        "floating_points": 238,
+        "max_overhang": 0.1132,
+        "status": "SUCCEEDED — 已发布"
+      },
+      "south_central": {
+        "model_id": 48,
+        "faces": 970686,
+        "vertices": 501974,
+        "bytes": 17763716,
+        "download_sha256": "3179da443476e350c91622515b5498e5cb4bf11db22d2062991c47fc1f8cab29",
+        "job": 26,
+        "crack_points": 416,
+        "median": 0.0039,
+        "max": 0.0271,
+        "tol": 0.0636,
+        "floating_points": 578,
+        "max_overhang": 1.6918,
+        "status": "SUCCEEDED — 已发布"
+      },
+      "bridge": {
+        "model_id": 51,
+        "faces": 490090,
+        "vertices": 328501,
+        "bytes": 20303396,
+        "download_sha256": "7be3a9d57819d4fa1c08ebe8baee7e9ec8387f29b731cf2c65ca49cb47d8bcf2",
+        "job": 31,
+        "crack_points": 2010,
+        "median": 0.0134,
+        "max": 0.0808,
+        "tol": 0.081,
+        "floating_points": 48,
+        "max_overhang": 0.1675,
+        "status": "SUCCEEDED — 已发布"
+      }
+    },
+    "conclusion": "三场景全部通过并发布（South 两选区此前拒绝的缺口由产品决策关闭）；不变量保持：核心盒外父面逐字保留（South 971,529 / Bridge 444,394 面）、非流形 0。悬空推测边缘作为声明项随 manifest 发布，可见、可解释、不伪装成实测表面"
+  }
 }

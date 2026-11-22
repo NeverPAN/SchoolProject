@@ -8,9 +8,10 @@ import numpy as np
 import pytest
 import trimesh
 
-from app.reconstruction.local_mesh_patch import (boundary_loops, cut_to_box, gap_tolerance_for,
+from app.reconstruction.local_mesh_patch import (GROUND_FACTOR, PATCH_TRIM, boundary_loops,
+                                                 cut_to_box, gap_tolerance_for, grounded_shell_mask,
                                                  mesh_invariants, outer_box, patch_vertex_colors,
-                                                 stitch_loops)
+                                                 splice_slit, stitch_loops)
 
 
 def _box_mesh(extents=(4, 4, 4), center=(0, 0, 0)):
@@ -126,6 +127,36 @@ def test_gap_tolerance_uses_max_of_both_meshes():
     assert gap_tolerance_for(fine, coarse) > gap_tolerance_for(fine)
 
 
+def test_patch_trim_product_decision_is_low_fill_holes():
+    assert PATCH_TRIM == 4
+
+
+def test_splice_slit_separates_grounded_crack_from_floating_inference():
+    parent = _grid_plane(spacing=0.25, extent=4.0)
+    # 左半补丁与父面共面接地；右半平移到 z=.2，表示 Poisson 洞区插值面。
+    grounded = _grid_plane(spacing=0.25, extent=2.0)
+    grounded.apply_translation([-0.5, 0.0, 0.0])
+    floating = grounded.copy()
+    floating.apply_translation([1.0, 0.0, 0.2])
+    patch = trimesh.util.concatenate([grounded, floating])
+    kept = parent.copy()
+    report = splice_slit(patch, kept, parent, gap_tolerance=0.1, ground_tolerance=0.05)
+    assert report["crack_points"] > 0
+    assert report["floating_points"] > 0
+    assert report["max_overhang"] == pytest.approx(0.2)
+    assert report["pass"] is True
+
+
+def test_grounded_shell_mask_tracks_parent_surface():
+    parent = _grid_plane(spacing=0.25, extent=4.0)
+    patch = _grid_plane(spacing=0.25, extent=2.0)
+    patch.apply_translation([0.0, 0.0, 0.03])
+    mask = grounded_shell_mask(patch, parent, ground_tolerance=0.05)
+    assert mask.all()
+    patch.apply_translation([0.0, 0.0, 0.1])
+    assert not grounded_shell_mask(patch, parent, ground_tolerance=0.05).any()
+
+
 def test_mesh_invariants_allow_remeshed_band_interior():
     """v2 语义：外盒内的父面可被过渡带重网格化替换，只要外盒外逐字保留。"""
     mesh = _box_mesh((6, 6, 6))
@@ -222,6 +253,7 @@ class TestLocalMeshSubmission:
         assert config["source_cloud"]["sha256"] == hashlib.sha256(ply.read_bytes()).hexdigest()
         assert config["parent_model"]["sha256"]
         assert config["bounds"]["min"] == [0.0, 0.0, 0.0]
+        assert config["resolved"]["poisson_trim"] == 4
 
     def test_local_mesh_rejects_non_fusion_source(self, client, auth_headers, project, upload_images, monkeypatch):
         from app.db.session import SessionLocal

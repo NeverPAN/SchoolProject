@@ -237,14 +237,17 @@ def main() -> None:
             model_row = page.locator("tr").filter(has_text="照片贴图")
             model_row.get_by_role("button", name="查看", exact=True).first.click()
             page.wait_for_url("**/models/*")
+            # 旋转按钮在选区模式下禁用，且旋转后的拖框曾产生退化选区（0 尺寸盒）；
+            # 实测可靠配方是"新载入视角 + 提取流程同款拖框"——产出 5.44×1.73×3.05
+            # 的全模型大盒，必然覆盖留出照片的贡献区（有增量点才发布，守卫兜底）。
             page.get_by_role("button", name="局部重建", exact=True).click()
             expect(page.get_by_text("选择 1–32 张本项目新增照片")).to_be_visible()
             # 先框选，再选照片
             canvas = page.locator("canvas").last
             canvas.wait_for(state="visible", timeout=60000)
             box = canvas.bounding_box()
-            sx, sy = box["x"] + box["width"] * 0.22, box["y"] + box["height"] * 0.30
-            ex, ey = box["x"] + box["width"] * 0.75, box["y"] + box["height"] * 0.68
+            sx, sy = box["x"] + box["width"] * 0.30, box["y"] + box["height"] * 0.35
+            ex, ey = box["x"] + box["width"] * 0.62, box["y"] + box["height"] * 0.60
             page.mouse.move(sx, sy)
             page.mouse.down()
             for i in range(1, 9):
